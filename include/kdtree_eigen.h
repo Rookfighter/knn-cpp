@@ -2,6 +2,8 @@
 #ifndef KDT_KDTREE_EIGEN_H_
 #define KDT_KDTREE_EIGEN_H_
 
+#include <Eigen/Geometry>
+
 namespace kdt
 {
     template <typename Scalar, int P, int Dim=Eigen::Dynamic>
@@ -11,7 +13,7 @@ namespace kdt
 
         Scalar operator()(const Vector &vecA, const Vector &vecB)
         {
-            return (vecA - vecB).lpNorm<P>();
+            return (vecA - vecB).template lpNorm<P>();
         }
     };
 
@@ -23,39 +25,41 @@ namespace kdt
     public:
         typedef Eigen::Matrix<Scalar, Dim, Eigen::Dynamic> Matrix;
         typedef Eigen::Matrix<Scalar, Dim, 1> Vector;
-        typedef Eigen::Matrix<size_t, Eigen::Dynamic, 1> Index;
+        typedef Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> IndexVector;
     private:
+        /** Struct representing a node in the KDTree.
+          * It can be either a inner node or a leaf node. */
         struct Node
         {
             /** Indices of data points in this leaf node. */
-            Index idx;
+            IndexVector idx;
 
             /** Left child of this inner node. */
             Node *left;
             /** Right child of this inner node. */
             Node *right;
             /** Axis of the axis aligned splitting hyper plane. */
-            size_t axis;
+            Eigen::Index axis;
             /** Translation of the axis aligned splitting hyper plane. */
             Scalar splitpoint;
 
             Node()
-                : left(nullptr), right(nullptr)
+                : idx(), left(nullptr), right(nullptr), axis(-1)
             {
 
             }
 
             /** Constructor for leaf nodes */
-            Node(const Index &idx)
-                :idx(idx), left(nullptr), right(nullptr)
+            Node(const IndexVector &idx)
+                :idx(idx), left(nullptr), right(nullptr), axis(-1)
             {
 
             }
 
             /** Constructor for inner nodes */
-            Node(const size_t axis, const Scalar splitpoint, Node *left,
+            Node(const Eigen::Index axis, const Scalar splitpoint, Node *left,
                 Node *right)
-                : idx(), left(left), right(right), idx(), axis(axis),
+                : idx(), left(left), right(right), axis(axis),
                 splitpoint(splitpoint)
             {
 
@@ -80,35 +84,36 @@ namespace kdt
         Matrix dataCopy_;
         const Matrix *data_;
 
-        size_t bucketSize_;
+        Eigen::Index bucketSize_;
         bool balance_;
-        size_t threads_;
+        Eigen::Index threads_;
 
         Distance distance_;
 
         Node *root_;
 
-        size_t argmax(const Vector &vec) const
+        Eigen::Index argmax(const Vector &vec) const
         {
             assert(vec.size() > 0);
             Scalar max = vec(0);
-            size_t idx = 0;
-            for(size_t i = 1; i < vec.size(); ++i)
+            Eigen::Index idx = 0;
+            for(Eigen::Index i = 1; i < vec.size(); ++i)
                 if(vec(i) > max)
                     idx = i;
             return idx;
         }
 
-        void findBoundaries(const Matrix &data, const Index &idx, Vector &mins,
+        void findBoundaries(const Matrix &data, const IndexVector &idx, Vector &mins,
             Vector &maxes) const
         {
             assert(idx.size() > 0);
+            Eigen::Index dim = data.rows();
             mins = data.col(idx(0));
             maxes = mins;
-            for(size_t i = 1; i < idx.size(); ++i)
+            for(Eigen::Index i = 1; i < idx.size(); ++i)
             {
-                size_t c = idx(i);
-                for(size_t r = 0; r < outVec.size(); ++r)
+                Eigen::Index c = idx(i);
+                for(Eigen::Index r = 0; r < dim; ++r)
                 {
                     Scalar a = data(r, c);
                     mins(r) = a < mins(r) ? a : mins(r);
@@ -123,15 +128,15 @@ namespace kdt
             return (inclusive && point >= midpoint) || point > midpoint;
         }
 
-        void splitMidpoint(const Matrix &data, const Index &idx,
-            const Scalar midpoint, const size_t axis, Index &leftIdx,
-            Index &rightIdx, bool rightInclusive)
+        void splitMidpoint(const Matrix &data, const IndexVector &idx,
+            const Scalar midpoint, const Eigen::Index axis, IndexVector &leftIdx,
+            IndexVector &rightIdx, bool rightInclusive)
         {
-            size_t leftCnt = 0;
-            size_t rightCnt = 0;
-            for(size_t i = 0; i < idx.size(); ++i)
+            Eigen::Index leftCnt = 0;
+            Eigen::Index rightCnt = 0;
+            for(Eigen::Index i = 0; i < idx.size(); ++i)
             {
-                if(isRight(data(axis, idx(i)), midpoint))
+                if(isRight(data(axis, idx(i)), midpoint, rightInclusive))
                     ++rightCnt;
                 else
                     ++leftCnt;
@@ -142,9 +147,9 @@ namespace kdt
             leftCnt = 0;
             rightCnt = 0;
 
-            for(size_t i = 0; i < idx.size(); ++i)
+            for(Eigen::Index i = 0; i < idx.size(); ++i)
             {
-                if(isRight(data(axis, idx(i)), midpoint))
+                if(isRight(data(axis, idx(i)), midpoint, rightInclusive))
                 {
                     rightIdx(rightCnt) = idx(i);
                     ++rightCnt;
@@ -157,7 +162,7 @@ namespace kdt
             }
         }
 
-        Node *buildR(const Index &idx, const Vector &mins, const Vector &maxes)
+        Node *buildR(const Matrix &data, const IndexVector &idx, const Vector &mins, const Vector &maxes)
         {
             // check for base case
             if(idx.size() <= bucketSize_)
@@ -170,7 +175,7 @@ namespace kdt
                 // get distance between min and max values
                 Vector diff = maxes - mins;
                 // search for axis with longest distance
-                size_t axis = argmax(diff);
+                Eigen::Index axis = argmax(diff);
                 // retrieve the corresponding values
                 Scalar minval = mins(axis);
                 Scalar maxval = maxes(axis);
@@ -179,7 +184,7 @@ namespace kdt
                 if(minval == maxval)
                     return new Node(idx);
 
-                Index leftIdx, rightIdx;
+                IndexVector leftIdx, rightIdx;
                 // find midpoint as mid of longest axis
                 Scalar midpoint = minval + diff(axis) / 2;
                 // split points into left and right
@@ -200,8 +205,7 @@ namespace kdt
                     splitMidpoint(data, idx, midpoint, axis, leftIdx, rightIdx,
                         true);
                 }
-                // check if left side is still empty
-                // this again means that all points are the same
+                // no side should be empty by now
                 assert(leftIdx.size() != 0);
                 assert(rightIdx.size() != 0);
 
@@ -231,13 +235,41 @@ namespace kdt
 
     public:
 
+        KDTree()
+            : dataCopy_(), data_(nullptr), bucketSize_(16),
+            balance_(true), threads_(1), distance_(), root_(nullptr)
+        {
+
+        }
+
         /**
           * @param data data points for the kdtree; one point per column
           * @param copy if true copies the data, otherwise assumes static data */
         KDTree(const Matrix &data, const bool copy=false)
-            : dataCopy_(), data_(nullptr), leafSize_(16),
-            balance_(true), threads_(1), distance_()
+            : dataCopy_(), data_(nullptr), bucketSize_(16),
+            balance_(true), threads_(1), distance_(), root_(nullptr)
         {
+            setData(data, copy);
+        }
+
+        void setBucketSize(const Eigen::Index bucketSize)
+        {
+            bucketSize_ = bucketSize;
+        }
+
+        void setBalanceTree(const bool balance)
+        {
+            balance_ = balance;
+        }
+
+        void setThreads(const Eigen::Index threads)
+        {
+            threads_ = threads;
+        }
+
+        void setData(const Matrix &data, const bool copy = false)
+        {
+            clear();
             if(copy)
             {
                 dataCopy_ = data;
@@ -249,31 +281,17 @@ namespace kdt
             }
         }
 
-        void setBucketSize(const size_t bucketSize)
-        {
-            bucketSize_ = bucketSize;
-        }
-
-        void setBalanceTree(const bool balance)
-        {
-            balance_ = balance;
-        }
-
-        void setThreads(const size_t threads)
-        {
-            threads_ = threads;
-        }
-
         void build()
         {
-            if(data_->cols() == 0)
+            if(data_ == nullptr)
+                throw std::runtime_error("cannot build KDTree; data not set");
 
             if(root_ != nullptr)
                 clear();
 
-            size_t n = data_->cols();
-            Index idx(n);
-            for(size_t i = 0; i < n; ++i)
+            Eigen::Index n = data_->cols();
+            IndexVector idx(n);
+            for(Eigen::Index i = 0; i < n; ++i)
                 idx(i) = i;
 
             Vector mins, maxes;
@@ -282,7 +300,7 @@ namespace kdt
             root_ = buildR(*data_, idx, mins, maxes);
         }
 
-        void query(const Matrix &points, const size_t knn, ) const
+        void query(const Matrix &points, const Eigen::Index knn) const
         {
 
         }
@@ -294,6 +312,7 @@ namespace kdt
                 clearR(root_);
                 root_ = nullptr;
             }
+            data_ = nullptr;
         }
     };
 
