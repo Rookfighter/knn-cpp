@@ -26,7 +26,7 @@ namespace kdt
         typedef Eigen::Matrix<Scalar, Dim, Eigen::Dynamic> Matrix;
         typedef Eigen::Matrix<Scalar, Dim, 1> Vector;
         typedef Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> IndexVector;
-    private:
+
         /** Struct representing a node in the KDTree.
           * It can be either a inner node or a leaf node. */
         struct Node
@@ -80,7 +80,7 @@ namespace kdt
                 return right != nullptr;
             }
         };
-
+    private:
         Matrix dataCopy_;
         const Matrix *data_;
 
@@ -314,6 +314,13 @@ namespace kdt
             }
             data_ = nullptr;
         }
+
+        const Node *tree() const
+        {
+            return root_;
+        }
+
+
     };
 
     typedef KDTree<float> KDTreef;
