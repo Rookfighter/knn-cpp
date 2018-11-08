@@ -1,0 +1,10 @@
+# CMakeLists.txt
+#
+#     Author: Fabian Meyer
+# Created On: 08 Nov 2018
+
+set(EIGEN3_ROOT "${CMAKE_CURRENT_LIST_DIR}/eigen" CACHE INTERNAL "")
+set(EIGEN3_INCLUDE_DIR "${EIGEN3_ROOT}" CACHE INTERNAL "")
+
+set(CATCH2_ROOT "${CMAKE_CURRENT_LIST_DIR}/catch2" CACHE INTERNAL "")
+set(CATCH2_INCLUDE_DIR "${CATCH2_ROOT}/single_include/catch2" CACHE INTERNAL "")
