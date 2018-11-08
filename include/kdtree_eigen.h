@@ -1,6 +1,6 @@
 
-#ifndef KDT_KDTREE_H_
-#define KDT_KDTREE_H_
+#ifndef KDT_KDTREE_EIGEN_H_
+#define KDT_KDTREE_EIGEN_H_
 
 namespace kdt
 {
