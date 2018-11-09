@@ -1,3 +1,8 @@
+/* kdtree_eigen.h
+ *
+ *     Author: Fabian Meyer
+ * Created On: 08 Nov 2018
+ */
 
 #ifndef KDT_KDTREE_EIGEN_H_
 #define KDT_KDTREE_EIGEN_H_
