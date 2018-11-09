@@ -130,7 +130,7 @@ namespace kdt
 
         void splitMidpoint(const Matrix &data, const IndexVector &idx,
             const Scalar midpoint, const Eigen::Index axis, IndexVector &leftIdx,
-            IndexVector &rightIdx, bool rightInclusive)
+            IndexVector &rightIdx, bool rightInclusive) const
         {
             Eigen::Index leftCnt = 0;
             Eigen::Index rightCnt = 0;
@@ -162,7 +162,7 @@ namespace kdt
             }
         }
 
-        Node *buildR(const Matrix &data, const IndexVector &idx, const Vector &mins, const Vector &maxes)
+        Node *buildR(const Matrix &data, const IndexVector &idx, const Vector &mins, const Vector &maxes) const
         {
             // check for base case
             if(idx.size() <= bucketSize_)
@@ -209,16 +209,28 @@ namespace kdt
                 assert(leftIdx.size() != 0);
                 assert(rightIdx.size() != 0);
 
-                // find left boundaries
-                Vector leftMins, leftMaxes;
-                findBoundaries(data, leftIdx, leftMins, leftMaxes);
-                // find right boundaries
-                Vector rightMins, rightMaxes;
-                findBoundaries(data, rightIdx, rightMins, rightMaxes);
+                Node *leftNode = nullptr;
+                Node *rightNode = nullptr;
 
-                // start recursion
-                Node* leftNode = buildR(data, leftIdx, leftMins, leftMaxes);
-                Node* rightNode = buildR(data, rightIdx, rightMins, rightMaxes);
+                #pragma omp sections
+                {
+                #pragma omp section
+                {
+                    // find left boundaries
+                    Vector leftMins, leftMaxes;
+                    findBoundaries(data, leftIdx, leftMins, leftMaxes);
+                    // start recursion
+                    leftNode = buildR(data, leftIdx, leftMins, leftMaxes);
+                }
+                #pragma omp section
+                {
+                    // find right boundaries
+                    Vector rightMins, rightMaxes;
+                    findBoundaries(data, rightIdx, rightMins, rightMaxes);
+                    // start recursion
+                    rightNode = buildR(data, rightIdx, rightMins, rightMaxes);
+                }
+                }
 
                 return new Node(axis, midpoint, leftNode, rightNode);
             }
@@ -286,6 +298,9 @@ namespace kdt
             if(data_ == nullptr)
                 throw std::runtime_error("cannot build KDTree; data not set");
 
+            if(data_->size() == 0)
+                throw std::runtime_error("cannot build KDTree; data is empty");
+
             if(root_ != nullptr)
                 clear();
 
@@ -294,10 +309,15 @@ namespace kdt
             for(Eigen::Index i = 0; i < n; ++i)
                 idx(i) = i;
 
-            Vector mins, maxes;
-            findBoundaries(*data_, idx, mins, maxes);
-
-            root_ = buildR(*data_, idx, mins, maxes);
+            #pragma omp parallel num_threads(threads_)
+            {
+            #pragma omp single
+            {
+                Vector mins, maxes;
+                findBoundaries(*data_, idx, mins, maxes);
+                root_ = buildR(*data_, idx, mins, maxes);
+            }
+            }
         }
 
         void query(const Matrix &points, const Eigen::Index knn) const

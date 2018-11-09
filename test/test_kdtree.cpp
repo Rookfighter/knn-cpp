@@ -13,7 +13,7 @@ TEST_CASE("KDTree")
 {
     KDTreed kdtree;
 
-    SECTION("build")
+    SECTION("build normal")
     {
         Eigen::MatrixXd data(3, 3);
         data << 1, 3, 0,
@@ -34,5 +34,35 @@ TEST_CASE("KDTree")
         REQUIRE(kdtree.tree()->right->isLeaf());
         REQUIRE(kdtree.tree()->right->idx.size() == 1);
         REQUIRE(kdtree.tree()->right->idx(0) == 1);
+    }
+
+    SECTION("build no data")
+    {
+        REQUIRE_THROWS(kdtree.build());
+    }
+
+    SECTION("build empty")
+    {
+        Eigen::MatrixXd data(3, 0);
+
+        kdtree.setData(data);
+        REQUIRE_THROWS(kdtree.build());
+    }
+
+    SECTION("build parallel")
+    {
+        Eigen::MatrixXd data(3, 9);
+        data << 1, 2, 3, 1, 2, 3, 1, 2, 3,
+                2, 1, 0, 3, 2, 1, 0, 3, 0,
+                2, 1, 3, 1, 2, 2, 3, 2, 1;
+
+        kdtree.setData(data);
+        kdtree.setThreads(4);
+        kdtree.build();
+    }
+
+    SECTION("build right empty")
+    {
+
     }
 }
