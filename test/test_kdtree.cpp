@@ -59,10 +59,33 @@ TEST_CASE("KDTree")
         kdtree.setData(data);
         kdtree.setThreads(4);
         kdtree.build();
+
+        REQUIRE(kdtree.tree() != nullptr);
     }
 
-    SECTION("build right empty")
+    SECTION("query one")
     {
+        Eigen::MatrixXd data(3, 3);
+        data << 1, 3, 0,
+            0, 1, 2,
+            3, 2, 0;
+
+        kdtree.setBucketSize(2);
+        kdtree.setData(data);
+        kdtree.build();
+
+        Eigen::MatrixXd points(3, 1);
+        points << 0, 1, 0;
+        Eigen::MatrixXi indices;
+        Eigen::MatrixXd distances;
+
+        kdtree.query(points, 1, indices, distances);
+
+        REQUIRE(indices.size() == 1);
+        REQUIRE(indices(0) == 2);
+        REQUIRE(distances.size() == 1);
+        REQUIRE(distances(0) == Approx(1.0));
+
 
     }
 }

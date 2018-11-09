@@ -11,7 +11,7 @@ namespace kdt
     {
         typedef Eigen::Matrix<Scalar, Dim, 1> Vector;
 
-        Scalar operator()(const Vector &vecA, const Vector &vecB)
+        Scalar operator()(const Vector &vecA, const Vector &vecB) const
         {
             return (vecA - vecB).template lpNorm<P>();
         }
@@ -92,17 +92,6 @@ namespace kdt
 
         Node *root_;
 
-        Eigen::Index argmax(const Vector &vec) const
-        {
-            assert(vec.size() > 0);
-            Scalar max = vec(0);
-            Eigen::Index idx = 0;
-            for(Eigen::Index i = 1; i < vec.size(); ++i)
-                if(vec(i) > max)
-                    idx = i;
-            return idx;
-        }
-
         void findBoundaries(const Matrix &data, const IndexVector &idx, Vector &mins,
             Vector &maxes) const
         {
@@ -175,7 +164,8 @@ namespace kdt
                 // get distance between min and max values
                 Vector diff = maxes - mins;
                 // search for axis with longest distance
-                Eigen::Index axis = argmax(diff);
+                Eigen::Index axis;
+                diff.maxCoeff(&axis);
                 // retrieve the corresponding values
                 Scalar minval = mins(axis);
                 Scalar maxval = maxes(axis);
@@ -320,9 +310,55 @@ namespace kdt
             }
         }
 
-        void query(const Matrix &points, const Eigen::Index knn) const
+        void query(const Matrix &points, const size_t knn, Eigen::MatrixXi &indices,
+            Matrix &distances) const
         {
+            if(root_ == nullptr)
+                throw std::runtime_error("cannot query KDTree; not built yet");
 
+            distances.setZero(knn, points.cols());
+            indices.setOnes(knn, points.cols());
+            indices *= -1;
+
+            #pragma omp parallel for num_threads(threads_ > 0 ? threads_ : omp_get_max_threads())
+            for(Eigen::Index i = 0; i < points.cols(); ++i)
+            {
+                Node *n = root_;
+                // search for the leaf this point would belong to
+                while(n != nullptr && !n->isLeaf())
+                {
+                    Scalar val = points(i, n->axis);
+                    n = val > n->splitpoint ? n->right : n->left;
+                }
+                assert(n != nullptr && n->isLeaf());
+
+                size_t cnt = 0;
+                // go through all points in this leaf node
+                for(Eigen::Index j = 0; j < n->idx.size(); ++j)
+                {
+                    Eigen::Index c = n->idx(j);
+                    Scalar dist = distance_(points.col(i), data_->col(c));
+                    // if the result vector is not full simply append
+                    if(cnt < knn)
+                    {
+                        indices(cnt, i) = c;
+                        distances(cnt, i) = dist;
+                        ++cnt;
+                    }
+                    else
+                    {
+                        Eigen::Index maxIdx;
+                        // check which is the maximum distance
+                        distances.col(i).maxCoeff(&maxIdx);
+                        if(dist < distances(maxIdx, i))
+                        {
+                            indices(maxIdx, i) = c;
+                            distances(maxIdx, i) = dist;
+                        }
+                    }
+                }
+
+            }
         }
 
         void clear()
