@@ -1,4 +1,4 @@
-/* test_kdtree.cpp
+/* test_kdtree_eigen.cpp
  *
  *     Author: Fabian Meyer
  * Created On: 08 Nov 2018
