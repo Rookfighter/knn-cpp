@@ -11,10 +11,10 @@
 
 namespace kdt
 {
-    template <typename Scalar, int P, int Dim=Eigen::Dynamic>
+    template <typename Scalar, int P>
     struct MinkowskiDistance
     {
-        typedef Eigen::Matrix<Scalar, Dim, 1> Vector;
+        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
 
         Scalar operator()(const Vector &vecA, const Vector &vecB) const
         {
@@ -23,13 +23,12 @@ namespace kdt
     };
 
     template<typename Scalar,
-        int Dim=Eigen::Dynamic,
-        typename Distance=MinkowskiDistance<Scalar, 2, Dim>>
+        typename Distance=MinkowskiDistance<Scalar, 2>>
     class KDTree
     {
     public:
-        typedef Eigen::Matrix<Scalar, Dim, Eigen::Dynamic> Matrix;
-        typedef Eigen::Matrix<Scalar, Dim, 1> Vector;
+        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
+        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
         typedef Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> IndexVector;
 
         /** Struct representing a node in the KDTree.
@@ -90,7 +89,7 @@ namespace kdt
         const Matrix *data_;
 
         Eigen::Index bucketSize_;
-        bool balance_;
+        bool sorted_;
         int threads_;
 
         Distance distance_;
@@ -244,7 +243,7 @@ namespace kdt
 
         KDTree()
             : dataCopy_(), data_(nullptr), bucketSize_(16),
-            balance_(true), threads_(1), distance_(), root_(nullptr)
+            sorted_(true), threads_(1), distance_(), root_(nullptr)
         {
 
         }
@@ -254,7 +253,7 @@ namespace kdt
           * @param copy if true copies the data, otherwise assumes static data */
         KDTree(const Matrix &data, const bool copy=false)
             : dataCopy_(), data_(nullptr), bucketSize_(16),
-            balance_(true), threads_(1), distance_(), root_(nullptr)
+            sorted_(true), threads_(1), distance_(), root_(nullptr)
         {
             setData(data, copy);
         }
@@ -264,9 +263,9 @@ namespace kdt
             bucketSize_ = bucketSize;
         }
 
-        void setBalanceTree(const bool balance)
+        void setSorted(const bool sorted)
         {
-            balance_ = balance;
+            sorted_ = sorted;
         }
 
         void setThreads(const int threads)
