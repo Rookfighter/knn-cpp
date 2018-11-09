@@ -86,7 +86,7 @@ namespace kdt
 
         Eigen::Index bucketSize_;
         bool balance_;
-        Eigen::Index threads_;
+        int threads_;
 
         Distance distance_;
 
@@ -274,7 +274,7 @@ namespace kdt
             balance_ = balance;
         }
 
-        void setThreads(const Eigen::Index threads)
+        void setThreads(const int threads)
         {
             threads_ = threads;
         }
@@ -309,7 +309,7 @@ namespace kdt
             for(Eigen::Index i = 0; i < n; ++i)
                 idx(i) = i;
 
-            #pragma omp parallel num_threads(threads_)
+            #pragma omp parallel num_threads(threads_ > 0 ? threads_ : omp_get_max_threads())
             {
             #pragma omp single
             {
