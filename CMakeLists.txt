@@ -8,10 +8,14 @@ project(kdtree-eigen)
 
 SET(CMAKE_CXX_STANDARD 11)
 SET(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_LIST_DIR}/cmake)
 
 if(CMAKE_COMPILER_IS_GNUCXX)
     set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 endif(CMAKE_COMPILER_IS_GNUCXX)
+
+find_package(Flann REQUIRED)
+
 
 # find OpenMP
 find_package(OpenMP)
@@ -27,6 +31,7 @@ include_directories(
     include
     ${EIGEN3_INCLUDE_DIR}
     ${CATCH2_INCLUDE_DIR}
+    ${FLANN_INCLUDE_DIR}
 )
 
 install(DIRECTORY include DESTINATION include)
