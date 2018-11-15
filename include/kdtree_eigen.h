@@ -29,6 +29,7 @@ namespace kdt
     public:
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
+        typedef Eigen::Matrix<Eigen::Index, Eigen::Dynamic, Eigen::Dynamic> IndexMatrix;
         typedef Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> IndexVector;
 
         /** Struct representing a node in the KDTree.
@@ -55,7 +56,8 @@ namespace kdt
 
             /** Constructor for leaf nodes */
             Node(const IndexVector &idx)
-                :idx(idx), left(nullptr), right(nullptr), axis(-1)
+                : idx(idx), left(nullptr), right(nullptr),
+                axis(-1)
             {
 
             }
@@ -96,8 +98,8 @@ namespace kdt
 
         Node *root_;
 
-        void findBoundaries(const Matrix &data, const IndexVector &idx, Vector &mins,
-            Vector &maxes) const
+        void findBoundaries(const Matrix &data, const IndexVector &idx,
+            Vector &mins, Vector &maxes) const
         {
             assert(idx.size() > 0);
             Eigen::Index dim = data.rows();
@@ -155,7 +157,8 @@ namespace kdt
             }
         }
 
-        Node *buildR(const Matrix &data, const IndexVector &idx, const Vector &mins, const Vector &maxes) const
+        Node *buildR(const Matrix &data, const IndexVector &idx,
+            const Vector &mins, const Vector &maxes) const
         {
             // check for base case
             if(idx.size() <= bucketSize_)
@@ -239,6 +242,98 @@ namespace kdt
             delete node;
         }
 
+        void queryR(const Node *n,
+            const Eigen::Index col,
+            const Matrix &queryPoints,
+            Eigen::MatrixXi &indices,
+            Matrix &distances,
+            Eigen::Index &cnt) const
+        {
+            // if node is a leaf just check it for neighbours
+            if(n->isLeaf())
+                checkLeafForNeighs(n, col, queryPoints, indices, distances, cnt);
+            else
+            {
+                assert(n->hasRight());
+                assert(n->hasLeft());
+
+                Scalar val = queryPoints(n->axis, col);
+                // check if right or left child should be visited
+                bool visitRight = isRight(val, n->splitpoint, true);
+                if(visitRight)
+                    queryR(n->right, col, queryPoints, indices, distances, cnt);
+                else
+                    queryR(n->left, col, queryPoints, indices, distances, cnt);
+
+                if(cnt < distances.rows())
+                {
+                    // if cnt is not full yet, just visit the other child, too
+                    if(visitRight)
+                        queryR(n->left, col, queryPoints, indices, distances, cnt);
+                    else
+                        queryR(n->right, col, queryPoints, indices, distances, cnt);
+                }
+                else
+                {
+                    // if cnt is full check if we could improve by visiting
+                    // the other child
+                    // check which is the minimum distance so far
+                    Scalar dist = distances.col(col).minCoeff();
+                    // get distance to splitting point
+                    Scalar diff = val - n->splitpoint;
+                    diff = diff < 0 ? -diff : diff;
+                    // check if distance to splitting point is lower than
+                    // current minimum distance
+                    if(diff < dist)
+                    {
+                        // if right was already visited check left child now
+                        if(visitRight)
+                            queryR(n->left, col, queryPoints, indices, distances, cnt);
+                        else
+                            queryR(n->right, col, queryPoints, indices, distances, cnt);
+                    }
+                }
+            }
+        }
+
+        void checkLeafForNeighs(const Node *n,
+            const Eigen::Index col,
+            const Matrix &queryPoints,
+            Eigen::MatrixXi &indices,
+            Matrix &distances,
+            Eigen::Index &cnt) const
+        {
+            assert(n->isLeaf());
+
+            // go through all points in this leaf node
+            for(Eigen::Index j = 0; j < n->idx.size(); ++j)
+            {
+                // retrieve index of this child
+                Eigen::Index c = n->idx(j);
+                Scalar dist = distance_(queryPoints.col(col), data_->col(c));
+                // check if all places in the result vector are already in use
+                if(cnt < distances.rows())
+                {
+                    // if the result vector is not full simply append
+                    indices(cnt, col) = c;
+                    distances(cnt, col) = dist;
+                    ++cnt;
+                }
+                else
+                {
+                    // result vector is full, retrieve current maximum distance
+                    Eigen::Index maxIdx;
+                    distances.col(col).maxCoeff(&maxIdx);
+                    // check if this distance is an improvement
+                    if(dist < distances(maxIdx, col))
+                    {
+                        indices(maxIdx, col) = c;
+                        distances(maxIdx, col) = dist;
+                    }
+                }
+            }
+        }
+
     public:
 
         KDTree()
@@ -314,54 +409,21 @@ namespace kdt
             }
         }
 
-        void query(const Matrix &points, const size_t knn, Eigen::MatrixXi &indices,
-            Matrix &distances) const
+        void query(const Matrix &queryPoints, const size_t knn,
+            Eigen::MatrixXi &indices, Matrix &distances) const
         {
             if(root_ == nullptr)
                 throw std::runtime_error("cannot query KDTree; not built yet");
 
-            distances.setZero(knn, points.cols());
-            indices.setOnes(knn, points.cols());
+            distances.setZero(knn, queryPoints.cols());
+            indices.setOnes(knn, queryPoints.cols());
             indices *= -1;
 
             #pragma omp parallel for num_threads(threads_ > 0 ? threads_ : omp_get_max_threads())
-            for(Eigen::Index i = 0; i < points.cols(); ++i)
+            for(Eigen::Index i = 0; i < queryPoints.cols(); ++i)
             {
-                Node *n = root_;
-                // search for the leaf this point would belong to
-                while(n != nullptr && !n->isLeaf())
-                {
-                    Scalar val = points(i, n->axis);
-                    n = val > n->splitpoint ? n->right : n->left;
-                }
-                assert(n != nullptr && n->isLeaf());
-
-                size_t cnt = 0;
-                // go through all points in this leaf node
-                for(Eigen::Index j = 0; j < n->idx.size(); ++j)
-                {
-                    Eigen::Index c = n->idx(j);
-                    Scalar dist = distance_(points.col(i), data_->col(c));
-                    // if the result vector is not full simply append
-                    if(cnt < knn)
-                    {
-                        indices(cnt, i) = c;
-                        distances(cnt, i) = dist;
-                        ++cnt;
-                    }
-                    else
-                    {
-                        Eigen::Index maxIdx;
-                        // check which is the maximum distance
-                        distances.col(i).maxCoeff(&maxIdx);
-                        if(dist < distances(maxIdx, i))
-                        {
-                            indices(maxIdx, i) = c;
-                            distances(maxIdx, i) = dist;
-                        }
-                    }
-                }
-
+                Eigen::Index cnt = 0;
+                queryR(root_, i, queryPoints, indices, distances, cnt);
             }
         }
 
