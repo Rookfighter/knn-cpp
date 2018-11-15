@@ -162,82 +162,83 @@ namespace kdt
             }
         }
 
+        Node *buildInnerNode(const Matrix &data, const IndexVector &idx,
+            const Vector &mins, const Vector &maxes) const
+        {
+            // get distance between min and max values
+            Vector diff = maxes - mins;
+            // search for axis with longest distance
+            Eigen::Index axis;
+            diff.maxCoeff(&axis);
+            // retrieve the corresponding values
+            Scalar minval = mins(axis);
+            Scalar maxval = maxes(axis);
+            // check if min and max are the same
+            // this basically means that all data points are the same
+            if(minval == maxval)
+                return new Node(idx);
+
+            IndexVector leftIdx, rightIdx;
+            // find midpoint as mid of longest axis
+            Scalar midpoint = minval + diff(axis) / 2;
+            // split points into left and right
+            splitMidpoint(data, idx, midpoint, axis, leftIdx, rightIdx,
+                false);
+
+            // check if left side is empty
+            if(leftIdx.size() == 0)
+            {
+                midpoint = minval;
+                splitMidpoint(data, idx, midpoint, axis, leftIdx, rightIdx,
+                    false);
+            }
+            // check if right side is empty
+            if(rightIdx.size() == 0)
+            {
+                midpoint = maxval;
+                splitMidpoint(data, idx, midpoint, axis, leftIdx, rightIdx,
+                    true);
+            }
+            // no side should be empty by now
+            assert(leftIdx.size() != 0);
+            assert(rightIdx.size() != 0);
+
+            Node *leftNode = nullptr;
+            Node *rightNode = nullptr;
+
+            #pragma omp task shared(data, leftNode)
+            {
+                // find left boundaries
+                Vector leftMins, leftMaxes;
+                findBoundaries(data, leftIdx, leftMins, leftMaxes);
+                // start recursion
+                leftNode = buildR(data, leftIdx, leftMins, leftMaxes);
+            }
+
+            #pragma omp task shared(data, rightNode)
+            {
+                // find right boundaries
+                Vector rightMins, rightMaxes;
+                findBoundaries(data, rightIdx, rightMins, rightMaxes);
+                // start recursion
+                rightNode = buildR(data, rightIdx, rightMins, rightMaxes);
+            }
+
+            #pragma omp taskwait
+
+            assert(leftNode != nullptr && rightNode != nullptr);
+
+            return new Node(axis, midpoint, leftNode, rightNode);
+        }
+
         Node *buildR(const Matrix &data, const IndexVector &idx,
             const Vector &mins, const Vector &maxes) const
         {
             // check for base case
             if(idx.size() <= bucketSize_)
-            {
-                // return a leaf node
                 return new Node(idx);
-            }
             else
-            {
-                // get distance between min and max values
-                Vector diff = maxes - mins;
-                // search for axis with longest distance
-                Eigen::Index axis;
-                diff.maxCoeff(&axis);
-                // retrieve the corresponding values
-                Scalar minval = mins(axis);
-                Scalar maxval = maxes(axis);
-                // check if min and max are the same
-                // this basically means that all data points are the same
-                if(minval == maxval)
-                    return new Node(idx);
-
-                IndexVector leftIdx, rightIdx;
-                // find midpoint as mid of longest axis
-                Scalar midpoint = minval + diff(axis) / 2;
-                // split points into left and right
-                splitMidpoint(data, idx, midpoint, axis, leftIdx, rightIdx,
-                    false);
-
-                // check if left side is empty
-                if(leftIdx.size() == 0)
-                {
-                    midpoint = minval;
-                    splitMidpoint(data, idx, midpoint, axis, leftIdx, rightIdx,
-                        false);
-                }
-                // check if right side is empty
-                if(rightIdx.size() == 0)
-                {
-                    midpoint = maxval;
-                    splitMidpoint(data, idx, midpoint, axis, leftIdx, rightIdx,
-                        true);
-                }
-                // no side should be empty by now
-                assert(leftIdx.size() != 0);
-                assert(rightIdx.size() != 0);
-
-                Node *leftNode = nullptr;
-                Node *rightNode = nullptr;
-
-                #pragma omp task shared(data, leftNode)
-                {
-                    // find left boundaries
-                    Vector leftMins, leftMaxes;
-                    findBoundaries(data, leftIdx, leftMins, leftMaxes);
-                    // start recursion
-                    leftNode = buildR(data, leftIdx, leftMins, leftMaxes);
-                }
-
-                #pragma omp task shared(data, rightNode)
-                {
-                    // find right boundaries
-                    Vector rightMins, rightMaxes;
-                    findBoundaries(data, rightIdx, rightMins, rightMaxes);
-                    // start recursion
-                    rightNode = buildR(data, rightIdx, rightMins, rightMaxes);
-                }
-
-                #pragma omp taskwait
-
-                assert(leftNode != nullptr && rightNode != nullptr);
-
-                return new Node(axis, midpoint, leftNode, rightNode);
-            }
+                return buildInnerNode(data, idx, mins, maxes);
         }
 
         void clearR(Node *node)
@@ -249,60 +250,7 @@ namespace kdt
             delete node;
         }
 
-        void queryR(const Node *n,
-            const Eigen::Index col,
-            const Matrix &queryPoints,
-            Eigen::MatrixXi &indices,
-            Matrix &distances,
-            Eigen::Index &cnt) const
-        {
-            // if node is a leaf just check it for neighbours
-            if(n->isLeaf())
-                checkLeafForNeighs(n, col, queryPoints, indices, distances, cnt);
-            else
-            {
-                assert(n->isInner());
-
-                Scalar val = queryPoints(n->axis, col);
-                // check if right or left child should be visited
-                bool visitRight = isRight(val, n->splitpoint, true);
-                if(visitRight)
-                    queryR(n->right, col, queryPoints, indices, distances, cnt);
-                else
-                    queryR(n->left, col, queryPoints, indices, distances, cnt);
-
-                if(cnt < distances.rows())
-                {
-                    // if cnt is not full yet, just visit the other child, too
-                    if(visitRight)
-                        queryR(n->left, col, queryPoints, indices, distances, cnt);
-                    else
-                        queryR(n->right, col, queryPoints, indices, distances, cnt);
-                }
-                else
-                {
-                    // if cnt is full check if we could improve by visiting
-                    // the other child
-                    // check which is the minimum distance so far
-                    Scalar dist = distances.col(col).minCoeff();
-                    // get distance to splitting point
-                    Scalar diff = val - n->splitpoint;
-                    diff = diff < 0 ? -diff : diff;
-                    // check if distance to splitting point is lower than
-                    // current minimum distance
-                    if(diff < dist)
-                    {
-                        // if right was already visited check left child now
-                        if(visitRight)
-                            queryR(n->left, col, queryPoints, indices, distances, cnt);
-                        else
-                            queryR(n->right, col, queryPoints, indices, distances, cnt);
-                    }
-                }
-            }
-        }
-
-        void checkLeafForNeighs(const Node *n,
+        void queryLeafNode(const Node *n,
             const Eigen::Index col,
             const Matrix &queryPoints,
             Eigen::MatrixXi &indices,
@@ -338,6 +286,67 @@ namespace kdt
                     }
                 }
             }
+        }
+
+        void queryInnerNode(const Node *n,
+            const Eigen::Index col,
+            const Matrix &queryPoints,
+            Eigen::MatrixXi &indices,
+            Matrix &distances,
+            Eigen::Index &cnt) const
+        {
+            assert(n->isInner());
+
+            Scalar val = queryPoints(n->axis, col);
+            // check if right or left child should be visited
+            bool visitRight = isRight(val, n->splitpoint, true);
+            if(visitRight)
+                queryR(n->right, col, queryPoints, indices, distances, cnt);
+            else
+                queryR(n->left, col, queryPoints, indices, distances, cnt);
+
+            if(cnt < distances.rows())
+            {
+                // if cnt is not full yet, just visit the other child, too
+                if(visitRight)
+                    queryR(n->left, col, queryPoints, indices, distances, cnt);
+                else
+                    queryR(n->right, col, queryPoints, indices, distances, cnt);
+            }
+            else
+            {
+                // if cnt is full check if we could improve by visiting
+                // the other child
+                // check which is the minimum distance so far
+                Scalar dist = distances.col(col).minCoeff();
+                // get distance to splitting point
+                Scalar diff = val - n->splitpoint;
+                diff = diff < 0 ? -diff : diff;
+                // check if distance to splitting point is lower than
+                // current minimum distance
+                if(diff < dist)
+                {
+                    // if right was already visited check left child now
+                    if(visitRight)
+                        queryR(n->left, col, queryPoints, indices, distances, cnt);
+                    else
+                        queryR(n->right, col, queryPoints, indices, distances, cnt);
+                }
+            }
+        }
+
+        void queryR(const Node *n,
+            const Eigen::Index col,
+            const Matrix &queryPoints,
+            Eigen::MatrixXi &indices,
+            Matrix &distances,
+            Eigen::Index &cnt) const
+        {
+            // if node is a leaf just check it for neighbours
+            if(n->isLeaf())
+                queryLeafNode(n, col, queryPoints, indices, distances, cnt);
+            else
+                queryInnerNode(n, col, queryPoints, indices, distances, cnt);
         }
 
     public:
