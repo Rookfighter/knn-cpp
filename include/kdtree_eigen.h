@@ -11,6 +11,7 @@
 
 namespace kdt
 {
+    /** Functor for minkowski distance. */
     template <typename Scalar, int P>
     struct MinkowskiDistance
     {
@@ -22,6 +23,7 @@ namespace kdt
         }
     };
 
+    /** Class for performing k nearest neighbour searches. */
     template<typename Scalar,
         typename Distance=MinkowskiDistance<Scalar, 2>>
     class KDTree
@@ -241,6 +243,12 @@ namespace kdt
                 return buildInnerNode(data, idx, mins, maxes);
         }
 
+        void clearRoot()
+        {
+            clearR(root_);
+            root_ = nullptr;
+        }
+
         void clearR(Node *node)
         {
             if(node->hasLeft())
@@ -351,6 +359,7 @@ namespace kdt
 
     public:
 
+        /** Constructs an empty KDTree. */
         KDTree()
             : dataCopy_(), data_(nullptr), bucketSize_(16),
             sorted_(true), threads_(1), distance_(), root_(nullptr)
@@ -358,8 +367,9 @@ namespace kdt
 
         }
 
-        /**
-          * @param data data points for the kdtree; one point per column
+        /** Constructs KDTree with the given data. This does not build the
+          * the index of the tree.
+          * @param data NxM matrix, M points of dimension N
           * @param copy if true copies the data, otherwise assumes static data */
         KDTree(const Matrix &data, const bool copy=false)
             : dataCopy_(), data_(nullptr), bucketSize_(16),
@@ -368,21 +378,40 @@ namespace kdt
             setData(data, copy);
         }
 
+        ~KDTree()
+        {
+            clear();
+        }
+
+        /** Set the maximum amount of data points per leaf in the tree (aka
+          * bucket size).
+          * @param bucketSize amount of points per leaf. */
         void setBucketSize(const Eigen::Index bucketSize)
         {
             bucketSize_ = bucketSize;
         }
 
+        /** Set if the points returned by the queries should be sorted
+          * according to their distance to the query points.
+          * @param sorted sort query results */
         void setSorted(const bool sorted)
         {
             sorted_ = sorted;
         }
 
+        /** Set the amount of threads that should be used for building and
+          * querying the tree.
+          * OMP has to be enabled for this to work.
+          * @param threads amount of threads, -1 for optimal choice */
         void setThreads(const int threads)
         {
             threads_ = threads;
         }
 
+        /** Set the data points used for this tree.
+          * This does not build the tree.
+          * @param data NxM matrix, M points of dimension N
+          * @param copy if true data is copied, assumes static data otherwise */
         void setData(const Matrix &data, const bool copy = false)
         {
             clear();
@@ -397,6 +426,8 @@ namespace kdt
             }
         }
 
+        /** Builds the search index of the tree.
+          * Data has to be set and must be non-empty. */
         void build()
         {
             if(data_ == nullptr)
@@ -406,7 +437,7 @@ namespace kdt
                 throw std::runtime_error("cannot build KDTree; data is empty");
 
             if(root_ != nullptr)
-                clear();
+                clearRoot();
 
             Eigen::Index n = data_->cols();
             IndexVector idx(n);
@@ -415,20 +446,32 @@ namespace kdt
 
             #pragma omp parallel num_threads(threads_ > 0 ? threads_ : omp_get_max_threads())
             {
-            #pragma omp single
-            {
-                Vector mins, maxes;
-                findBoundaries(*data_, idx, mins, maxes);
-                root_ = buildR(*data_, idx, mins, maxes);
-            }
+                #pragma omp single
+                {
+                    Vector mins, maxes;
+                    findBoundaries(*data_, idx, mins, maxes);
+                    root_ = buildR(*data_, idx, mins, maxes);
+                }
             }
         }
 
+        /** Queries the tree for the nearest neighbours of the given query
+          * points.
+          * The tree has to be built before it can be queried. The queryPoints
+          * have to have the same dimension as the data points of the tree.
+          * @param queryPoints NxM matrix, M points of dimension N
+          * @param knn amount of neighbours to be found
+          * @param indices KNNxM matrix, indices of neighbours in the data set
+          * @param distances KNNxM matrix, distance between querypoint and
+          *        neighbours */
         void query(const Matrix &queryPoints, const size_t knn,
             Eigen::MatrixXi &indices, Matrix &distances) const
         {
             if(root_ == nullptr)
                 throw std::runtime_error("cannot query KDTree; not built yet");
+
+            if(queryPoints.rows() != dimension())
+                throw std::runtime_error("cannot query KDTree; data and query points do not have same dimension");
 
             distances.setZero(knn, queryPoints.cols());
             indices.setOnes(knn, queryPoints.cols());
@@ -445,10 +488,7 @@ namespace kdt
         void clear()
         {
             if(root_ != nullptr)
-            {
-                clearR(root_);
-                root_ = nullptr;
-            }
+                clearRoot();
             data_ = nullptr;
         }
 
