@@ -76,6 +76,11 @@ namespace kdt
                 return !hasLeft() && !hasRight();
             }
 
+            bool isInner() const
+            {
+                return hasLeft() && hasRight();
+            }
+
             bool hasLeft() const
             {
                 return left != nullptr;
@@ -209,9 +214,7 @@ namespace kdt
                 Node *leftNode = nullptr;
                 Node *rightNode = nullptr;
 
-                #pragma omp sections
-                {
-                #pragma omp section
+                #pragma omp task shared(data, leftNode)
                 {
                     // find left boundaries
                     Vector leftMins, leftMaxes;
@@ -219,7 +222,8 @@ namespace kdt
                     // start recursion
                     leftNode = buildR(data, leftIdx, leftMins, leftMaxes);
                 }
-                #pragma omp section
+
+                #pragma omp task shared(data, rightNode)
                 {
                     // find right boundaries
                     Vector rightMins, rightMaxes;
@@ -227,7 +231,10 @@ namespace kdt
                     // start recursion
                     rightNode = buildR(data, rightIdx, rightMins, rightMaxes);
                 }
-                }
+
+                #pragma omp taskwait
+
+                assert(leftNode != nullptr && rightNode != nullptr);
 
                 return new Node(axis, midpoint, leftNode, rightNode);
             }
@@ -254,8 +261,7 @@ namespace kdt
                 checkLeafForNeighs(n, col, queryPoints, indices, distances, cnt);
             else
             {
-                assert(n->hasRight());
-                assert(n->hasLeft());
+                assert(n->isInner());
 
                 Scalar val = queryPoints(n->axis, col);
                 // check if right or left child should be visited
@@ -440,6 +446,16 @@ namespace kdt
         const Node *tree() const
         {
             return root_;
+        }
+
+        Eigen::Index size() const
+        {
+            return data_ == nullptr ? 0 : data_->cols();
+        }
+
+        Eigen::Index dimension() const
+        {
+            return data_ == nullptr ? 0 : data_->rows();
         }
 
 
