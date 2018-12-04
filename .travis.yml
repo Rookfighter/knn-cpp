@@ -2,7 +2,6 @@ language: cpp
 
 compiler:
     - gcc
-    - clang
 
 dist: trusty
 
@@ -10,7 +9,7 @@ sudo: required
 
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -qq build-essential cmake clang libflann-dev libompl-dev
+  - sudo apt-get install -qq build-essential cmake clang libflann-dev
 
 install:
 
