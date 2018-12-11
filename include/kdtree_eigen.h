@@ -208,7 +208,9 @@ namespace kdt
             Node *leftNode = nullptr;
             Node *rightNode = nullptr;
 
+            #ifndef _MSC_VER
             #pragma omp task shared(data, leftNode)
+            #endif
             {
                 // find left boundaries
                 Vector leftMins, leftMaxes;
@@ -217,7 +219,9 @@ namespace kdt
                 leftNode = buildR(data, leftIdx, leftMins, leftMaxes);
             }
 
+            #ifndef _MSC_VER
             #pragma omp task shared(data, rightNode)
+            #endif
             {
                 // find right boundaries
                 Vector rightMins, rightMaxes;
@@ -226,7 +230,9 @@ namespace kdt
                 rightNode = buildR(data, rightIdx, rightMins, rightMaxes);
             }
 
+            #ifndef _MSC_VER
             #pragma omp taskwait
+            #endif
 
             assert(leftNode != nullptr && rightNode != nullptr);
 
@@ -444,9 +450,13 @@ namespace kdt
             for(Eigen::Index i = 0; i < n; ++i)
                 idx(i) = i;
 
+            #ifndef _MSC_VER
             #pragma omp parallel num_threads(threads_ > 0 ? threads_ : omp_get_max_threads())
+            #endif
             {
+                #ifndef _MSC_VER
                 #pragma omp single
+                #endif
                 {
                     Vector mins, maxes;
                     findBoundaries(*data_, idx, mins, maxes);
