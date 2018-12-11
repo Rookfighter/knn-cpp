@@ -31,8 +31,11 @@ include_directories(
     include
     ${EIGEN3_INCLUDE_DIR}
     ${CATCH2_INCLUDE_DIR}
-    ${FLANN_INCLUDE_DIR}
 )
+
+if(${FLANN_FOUND})
+    include_directories(${FLANN_INCLUDE_DIR})
+endif(${FLANN_FOUND})
 
 install(FILES
     "include/kdtree_eigen.h"
