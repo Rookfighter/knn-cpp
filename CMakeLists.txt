@@ -14,8 +14,8 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 endif(CMAKE_COMPILER_IS_GNUCXX)
 
-find_package(Flann REQUIRED)
-
+# Find Flann
+find_package(Flann)
 
 # find OpenMP
 find_package(OpenMP)
@@ -34,8 +34,20 @@ include_directories(
     ${FLANN_INCLUDE_DIR}
 )
 
-install(DIRECTORY include DESTINATION include)
+install(FILES
+    "include/kdtree_eigen.h"
+    "include/kdtree_flann.h"
+    DESTINATION include)
 
-# Compile tests
-file(GLOB TEST_SRC test/*.cpp)
-add_executable(run_tests ${TEST_SRC})
+if(${BUILD_TESTS})
+    # Compile tests
+    set(TEST_SRC
+        "test/main.cpp"
+        "test/test_kdtree_eigen.cpp"
+    )
+    if(${FLANN_FOUND})
+        list(APPEND TEST_SRC "test/test_kdtree_flann.cpp")
+    endif(${FLANN_FOUND})
+
+    add_executable(run_tests ${TEST_SRC})
+endif(${BUILD_TESTS})
