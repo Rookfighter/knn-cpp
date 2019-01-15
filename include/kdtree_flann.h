@@ -24,7 +24,6 @@ namespace kdt
         Matrix dataCopy_;
         flann::Matrix<Scalar> data_;
 
-
         flann::Index<Distance> index_;
         flann::SearchParams params_;
 
@@ -33,6 +32,12 @@ namespace kdt
             : dataCopy_(), data_(nullptr, 0, 0), index_(flann::KDTreeSingleIndexParams())
         {
 
+        }
+
+        KDTreeFlann(Matrix &data, const bool copy = false)
+            : KDTreeFlann()
+        {
+            setData(data, copy);
         }
 
         void setIndexParams(const flann::IndexParams &params)
