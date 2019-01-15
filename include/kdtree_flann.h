@@ -19,6 +19,7 @@ namespace kdt
     public:
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
+        typedef typename Matrix::Index Index;
 
     private:
         Matrix dataCopy_;
@@ -97,7 +98,7 @@ namespace kdt
         {
             if(index_.size() == 0)
                 throw std::runtime_error("cannot query KDTree; not built yet");
-            if(static_cast<Eigen::Index>(index_.veclen()) != points.rows())
+            if(static_cast<Index>(index_.veclen()) != points.rows())
                 throw std::runtime_error("cannot query KDTree; index has different dimension than query data");
 
             distances.resize(knn, points.cols());

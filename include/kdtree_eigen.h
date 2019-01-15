@@ -31,8 +31,9 @@ namespace kdt
     public:
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
-        typedef Eigen::Matrix<Eigen::Index, Eigen::Dynamic, Eigen::Dynamic> IndexMatrix;
-        typedef Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> IndexVector;
+        typedef typename Matrix::Index Index;
+        typedef Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic> IndexMatrix;
+        typedef Eigen::Matrix<Index, Eigen::Dynamic, 1> IndexVector;
 
         /** Struct representing a node in the KDTree.
           * It can be either a inner node or a leaf node. */
@@ -46,7 +47,7 @@ namespace kdt
             /** Right child of this inner node. */
             Node *right;
             /** Axis of the axis aligned splitting hyper plane. */
-            Eigen::Index axis;
+            Index axis;
             /** Translation of the axis aligned splitting hyper plane. */
             Scalar splitpoint;
 
@@ -65,7 +66,7 @@ namespace kdt
             }
 
             /** Constructor for inner nodes */
-            Node(const Eigen::Index axis, const Scalar splitpoint, Node *left,
+            Node(const Index axis, const Scalar splitpoint, Node *left,
                 Node *right)
                 : idx(), left(left), right(right), axis(axis),
                 splitpoint(splitpoint)
@@ -97,7 +98,7 @@ namespace kdt
         Matrix dataCopy_;
         const Matrix *data_;
 
-        Eigen::Index bucketSize_;
+        Index bucketSize_;
         bool sorted_;
         int threads_;
 
@@ -109,13 +110,13 @@ namespace kdt
             Vector &mins, Vector &maxes) const
         {
             assert(idx.size() > 0);
-            Eigen::Index dim = data.rows();
+            Index dim = data.rows();
             mins = data.col(idx(0));
             maxes = mins;
-            for(Eigen::Index i = 1; i < idx.size(); ++i)
+            for(Index i = 1; i < idx.size(); ++i)
             {
-                Eigen::Index c = idx(i);
-                for(Eigen::Index r = 0; r < dim; ++r)
+                Index c = idx(i);
+                for(Index r = 0; r < dim; ++r)
                 {
                     Scalar a = data(r, c);
                     mins(r) = a < mins(r) ? a : mins(r);
@@ -131,12 +132,12 @@ namespace kdt
         }
 
         void splitMidpoint(const Matrix &data, const IndexVector &idx,
-            const Scalar midpoint, const Eigen::Index axis, IndexVector &leftIdx,
+            const Scalar midpoint, const Index axis, IndexVector &leftIdx,
             IndexVector &rightIdx, bool rightInclusive) const
         {
-            Eigen::Index leftCnt = 0;
-            Eigen::Index rightCnt = 0;
-            for(Eigen::Index i = 0; i < idx.size(); ++i)
+            Index leftCnt = 0;
+            Index rightCnt = 0;
+            for(Index i = 0; i < idx.size(); ++i)
             {
                 if(isRight(data(axis, idx(i)), midpoint, rightInclusive))
                     ++rightCnt;
@@ -149,7 +150,7 @@ namespace kdt
             leftCnt = 0;
             rightCnt = 0;
 
-            for(Eigen::Index i = 0; i < idx.size(); ++i)
+            for(Index i = 0; i < idx.size(); ++i)
             {
                 if(isRight(data(axis, idx(i)), midpoint, rightInclusive))
                 {
@@ -170,7 +171,7 @@ namespace kdt
             // get distance between min and max values
             Vector diff = maxes - mins;
             // search for axis with longest distance
-            Eigen::Index axis;
+            Index axis;
             diff.maxCoeff(&axis);
             // retrieve the corresponding values
             Scalar minval = mins(axis);
@@ -265,19 +266,19 @@ namespace kdt
         }
 
         void queryLeafNode(const Node *n,
-            const Eigen::Index col,
+            const Index col,
             const Matrix &queryPoints,
             Eigen::MatrixXi &indices,
             Matrix &distances,
-            Eigen::Index &cnt) const
+            Index &cnt) const
         {
             assert(n->isLeaf());
 
             // go through all points in this leaf node
-            for(Eigen::Index j = 0; j < n->idx.size(); ++j)
+            for(Index j = 0; j < n->idx.size(); ++j)
             {
                 // retrieve index of this child
-                Eigen::Index c = n->idx(j);
+                Index c = n->idx(j);
                 Scalar dist = distance_(queryPoints.col(col), data_->col(c));
                 // check if all places in the result vector are already in use
                 if(cnt < distances.rows())
@@ -290,7 +291,7 @@ namespace kdt
                 else
                 {
                     // result vector is full, retrieve current maximum distance
-                    Eigen::Index maxIdx;
+                    Index maxIdx;
                     distances.col(col).maxCoeff(&maxIdx);
                     // check if this distance is an improvement
                     if(dist < distances(maxIdx, col))
@@ -303,11 +304,11 @@ namespace kdt
         }
 
         void queryInnerNode(const Node *n,
-            const Eigen::Index col,
+            const Index col,
             const Matrix &queryPoints,
             Eigen::MatrixXi &indices,
             Matrix &distances,
-            Eigen::Index &cnt) const
+            Index &cnt) const
         {
             assert(n->isInner());
 
@@ -350,11 +351,11 @@ namespace kdt
         }
 
         void queryR(const Node *n,
-            const Eigen::Index col,
+            const Index col,
             const Matrix &queryPoints,
             Eigen::MatrixXi &indices,
             Matrix &distances,
-            Eigen::Index &cnt) const
+            Index &cnt) const
         {
             // if node is a leaf just check it for neighbours
             if(n->isLeaf())
@@ -392,7 +393,7 @@ namespace kdt
         /** Set the maximum amount of data points per leaf in the tree (aka
           * bucket size).
           * @param bucketSize amount of points per leaf. */
-        void setBucketSize(const Eigen::Index bucketSize)
+        void setBucketSize(const Index bucketSize)
         {
             bucketSize_ = bucketSize;
         }
@@ -445,9 +446,9 @@ namespace kdt
             if(root_ != nullptr)
                 clearRoot();
 
-            Eigen::Index n = data_->cols();
+            Index n = data_->cols();
             IndexVector idx(n);
-            for(Eigen::Index i = 0; i < n; ++i)
+            for(Index i = 0; i < n; ++i)
                 idx(i) = i;
 
             #ifndef _MSC_VER
@@ -488,9 +489,9 @@ namespace kdt
             indices *= -1;
 
             #pragma omp parallel for num_threads(threads_ > 0 ? threads_ : omp_get_max_threads())
-            for(Eigen::Index i = 0; i < queryPoints.cols(); ++i)
+            for(Index i = 0; i < queryPoints.cols(); ++i)
             {
-                Eigen::Index cnt = 0;
+                Index cnt = 0;
                 queryR(root_, i, queryPoints, indices, distances, cnt);
             }
         }
@@ -507,12 +508,12 @@ namespace kdt
             return root_;
         }
 
-        Eigen::Index size() const
+        Index size() const
         {
             return data_ == nullptr ? 0 : data_->cols();
         }
 
-        Eigen::Index dimension() const
+        Index dimension() const
         {
             return data_ == nullptr ? 0 : data_->rows();
         }
