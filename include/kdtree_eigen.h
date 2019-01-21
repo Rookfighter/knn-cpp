@@ -330,18 +330,18 @@ namespace kdt
 
             Scalar val = queryPoints(n->axis, col);
 
-            // get distance to midpoint
-            Scalar distMid = std::abs(val - n->splitpoint);
-            // if distance is greater than maximum distance then return
-            if(maxDist_ > 0 && distMid > maxDist_)
-                return;
-
             // check if right or left child should be visited
             bool visitRight = visitRightNode(val, n->splitpoint, true);
             if(visitRight)
                 queryR(n->right, col, queryPoints, indices, distances, cnt);
             else
                 queryR(n->left, col, queryPoints, indices, distances, cnt);
+
+            // get distance to midpoint
+            Scalar distMid = std::abs(val - n->splitpoint);
+            // if distance is greater than maximum distance then return
+            if(maxDist_ > 0 && distMid > maxDist_)
+                return;
 
             if(cnt < distances.rows())
             {
