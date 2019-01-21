@@ -20,19 +20,23 @@ namespace kdt
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
         typedef typename Matrix::Index Index;
+        typedef Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic> MatrixI;
 
     private:
+        typedef flann::Index<Distance> FlannIndex;
+
         Matrix dataCopy_;
         flann::Matrix<Scalar> data_;
 
-        flann::Index<Distance> index_;
+        FlannIndex *index_;
         flann::SearchParams params_;
 
     public:
         KDTreeFlann()
-            : dataCopy_(), data_(nullptr, 0, 0), index_(flann::KDTreeSingleIndexParams())
+            : dataCopy_(), data_(nullptr, 0, 0), index_(nullptr),
+            params_(0, 0, false)
         {
-
+            index_ = new FlannIndex(flann::KDTreeSingleIndexParams(15));
         }
 
         KDTreeFlann(Matrix &data, const bool copy = false)
@@ -41,9 +45,18 @@ namespace kdt
             setData(data, copy);
         }
 
+        ~KDTreeFlann()
+        {
+            if(index_ != nullptr)
+                delete index_;
+        }
+
         void setIndexParams(const flann::IndexParams &params)
         {
-             index_ = flann::Index<Distance>(params);
+            if(index_ != nullptr)
+                delete index_;
+
+            index_ = new FlannIndex(params);
         }
 
         void setLeafVisits(const int visits)
@@ -90,34 +103,44 @@ namespace kdt
             if(data_.ptr() == nullptr)
                 throw std::runtime_error("cannot build KDTree; data not set");
 
-            index_.buildIndex(data_);
+            index_->buildIndex(data_);
         }
 
-        int query(Matrix &points, const size_t knn, Eigen::MatrixXi &indices,
-                Matrix &distances) const
+        int query(Matrix &points,
+            const size_t knn,
+            MatrixI &indices,
+            Matrix &distances) const
         {
-            if(index_.size() == 0)
+            if(index_->size() == 0)
                 throw std::runtime_error("cannot query KDTree; not built yet");
-            if(static_cast<Index>(index_.veclen()) != points.rows())
+            if(static_cast<Index>(index_->veclen()) != points.rows())
                 throw std::runtime_error("cannot query KDTree; index has different dimension than query data");
 
-            distances.resize(knn, points.cols());
-            indices.resize(knn, points.cols());
+            distances.setZero(knn, points.cols());
+            indices.setConstant(knn, points.cols(), -1);
 
-            const flann::Matrix<Scalar> pointsF(points.data(), points.cols(),
+            const flann::Matrix<Scalar> pointsF(
+                points.data(),
+                points.cols(),
                 points.rows());
-            flann::Matrix<int> indicesF(indices.data(), indices.cols(),
+            flann::Matrix<int> indicesF(
+                indices.data(),
+                indices.cols(),
                 indices.rows());
-            flann::Matrix<Scalar> distancesF(distances.data(), distances.cols(),
+            flann::Matrix<Scalar> distancesF(
+                distances.data(),
+                distances.cols(),
                 distances.rows());
 
-            return index_.knnSearch(pointsF, indicesF, distancesF, knn,
+            return index_->knnSearch(pointsF, indicesF, distancesF, knn,
                 params_);
         }
 
         void clear()
         {
-            index_ = flann::Index<Distance>(index_.getParameters());
+            FlannIndex *tmp = new FlannIndex(index_->getParameters());
+            delete index_;
+            index_ = tmp;
         }
     };
 
