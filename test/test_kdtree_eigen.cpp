@@ -118,4 +118,34 @@ TEST_CASE("KDTree")
             REQUIRE(distances(i) > 0);
         }
     }
+
+    SECTION("query maximum distance")
+    {
+        Eigen::MatrixXd data(3, 3);
+        data << 1, 3, 0,
+            0, 1, 2,
+            3, 2, 0;
+        kdtree.setBucketSize(2);
+        kdtree.setData(data);
+        kdtree.setMaxDistance(1.5);
+        kdtree.build();
+
+        REQUIRE(kdtree.size() == 3);
+
+        Eigen::MatrixXd points(3, 1);
+        points << 0, 1, 0;
+        Eigen::MatrixXi indices;
+        Eigen::MatrixXd distances;
+
+        kdtree.query(points, 2, indices, distances);
+
+        REQUIRE(indices.cols() == 1);
+        REQUIRE(indices.rows() == 2);
+        REQUIRE(indices(0, 0) == 2);
+        REQUIRE(indices(1, 0) == -1);
+        REQUIRE(distances.cols() == 1);
+        REQUIRE(distances.rows() == 2);
+        REQUIRE(distances(0, 0) == Approx(1.0));
+        REQUIRE(distances(1, 0) == 0.0);
+    }
 }
