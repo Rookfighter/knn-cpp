@@ -32,15 +32,14 @@ namespace kdt
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
         typedef typename Matrix::Index Index;
-        typedef Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic> IndexMatrix;
-        typedef Eigen::Matrix<Index, Eigen::Dynamic, 1> IndexVector;
+        typedef Eigen::Matrix<Index, Eigen::Dynamic, 1> VectorI;
 
         /** Struct representing a node in the KDTree.
           * It can be either a inner node or a leaf node. */
         struct Node
         {
             /** Indices of data points in this leaf node. */
-            IndexVector idx;
+            VectorI idx;
 
             /** Left child of this inner node. */
             Node *left;
@@ -58,7 +57,7 @@ namespace kdt
             }
 
             /** Constructor for leaf nodes */
-            Node(const IndexVector &idx)
+            Node(const VectorI &idx)
                 : idx(idx), left(nullptr), right(nullptr),
                 axis(-1)
             {
@@ -101,22 +100,32 @@ namespace kdt
         Index bucketSize_;
         bool sorted_;
         int threads_;
+        Scalar maxDist_;
 
         Distance distance_;
 
         Node *root_;
 
-        void findBoundaries(const Matrix &data, const IndexVector &idx,
+        /** Finds the minimum and maximum values of each dimension (row) in the
+         *  data matrix. Only respects the columns specified by the index
+         *  vector. */
+        void findDataMinMax(const Matrix &data, const VectorI &idx,
             Vector &mins, Vector &maxes) const
         {
             assert(idx.size() > 0);
-            Index dim = data.rows();
+            assert(idx(0) >= 0 && idx(0) < data.cols());
+
+            // initialize mins and maxes with first element of idx
             mins = data.col(idx(0));
             maxes = mins;
+            // search for min / max values in data
             for(Index i = 1; i < idx.size(); ++i)
             {
+                // retrieve data index
                 Index c = idx(i);
-                for(Index r = 0; r < dim; ++r)
+                assert(c >= 0 && c < data.cols());
+                // check min and max for each dimension individually
+                for(Index r = 0; r < data.rows(); ++r)
                 {
                     Scalar a = data(r, c);
                     mins(r) = a < mins(r) ? a : mins(r);
@@ -125,21 +134,23 @@ namespace kdt
             }
         }
 
-        bool isRight(const Scalar point, const Scalar midpoint, bool inclusive)
+        /** Predicate to determine if the right or left node should be visited.
+         *  @return returns true if the right node should be visited */
+        bool visitRightNode(const Scalar point, const Scalar midpoint, bool inclusive)
             const
         {
             return (inclusive && point >= midpoint) || point > midpoint;
         }
 
-        void splitMidpoint(const Matrix &data, const IndexVector &idx,
-            const Scalar midpoint, const Index axis, IndexVector &leftIdx,
-            IndexVector &rightIdx, bool rightInclusive) const
+        void splitMidpoint(const Matrix &data, const VectorI &idx,
+            const Scalar midpoint, const Index axis, VectorI &leftIdx,
+            VectorI &rightIdx, bool rightInclusive) const
         {
             Index leftCnt = 0;
             Index rightCnt = 0;
             for(Index i = 0; i < idx.size(); ++i)
             {
-                if(isRight(data(axis, idx(i)), midpoint, rightInclusive))
+                if(visitRightNode(data(axis, idx(i)), midpoint, rightInclusive))
                     ++rightCnt;
                 else
                     ++leftCnt;
@@ -152,7 +163,7 @@ namespace kdt
 
             for(Index i = 0; i < idx.size(); ++i)
             {
-                if(isRight(data(axis, idx(i)), midpoint, rightInclusive))
+                if(visitRightNode(data(axis, idx(i)), midpoint, rightInclusive))
                 {
                     rightIdx(rightCnt) = idx(i);
                     ++rightCnt;
@@ -165,7 +176,7 @@ namespace kdt
             }
         }
 
-        Node *buildInnerNode(const Matrix &data, const IndexVector &idx,
+        Node *buildInnerNode(const Matrix &data, const VectorI &idx,
             const Vector &mins, const Vector &maxes) const
         {
             // get distance between min and max values
@@ -181,7 +192,7 @@ namespace kdt
             if(minval == maxval)
                 return new Node(idx);
 
-            IndexVector leftIdx, rightIdx;
+            VectorI leftIdx, rightIdx;
             // find midpoint as mid of longest axis
             Scalar midpoint = minval + diff(axis) / 2;
             // split points into left and right
@@ -215,7 +226,7 @@ namespace kdt
             {
                 // find left boundaries
                 Vector leftMins, leftMaxes;
-                findBoundaries(data, leftIdx, leftMins, leftMaxes);
+                findDataMinMax(data, leftIdx, leftMins, leftMaxes);
                 // start recursion
                 leftNode = buildR(data, leftIdx, leftMins, leftMaxes);
             }
@@ -226,7 +237,7 @@ namespace kdt
             {
                 // find right boundaries
                 Vector rightMins, rightMaxes;
-                findBoundaries(data, rightIdx, rightMins, rightMaxes);
+                findDataMinMax(data, rightIdx, rightMins, rightMaxes);
                 // start recursion
                 rightNode = buildR(data, rightIdx, rightMins, rightMaxes);
             }
@@ -240,7 +251,7 @@ namespace kdt
             return new Node(axis, midpoint, leftNode, rightNode);
         }
 
-        Node *buildR(const Matrix &data, const IndexVector &idx,
+        Node *buildR(const Matrix &data, const VectorI &idx,
             const Vector &mins, const Vector &maxes) const
         {
             // check for base case
@@ -280,6 +291,11 @@ namespace kdt
                 // retrieve index of this child
                 Index c = n->idx(j);
                 Scalar dist = distance_(queryPoints.col(col), data_->col(c));
+
+                // if distance is greater than maximum distance then skip
+                if(maxDist_ > 0 && dist > maxDist_)
+                    continue;
+
                 // check if all places in the result vector are already in use
                 if(cnt < distances.rows())
                 {
@@ -313,8 +329,15 @@ namespace kdt
             assert(n->isInner());
 
             Scalar val = queryPoints(n->axis, col);
+
+            // get distance to midpoint
+            Scalar distMid = std::abs(val - n->splitpoint);
+            // if distance is greater than maximum distance then return
+            if(maxDist_ > 0 && distMid > maxDist_)
+                return;
+
             // check if right or left child should be visited
-            bool visitRight = isRight(val, n->splitpoint, true);
+            bool visitRight = visitRightNode(val, n->splitpoint, true);
             if(visitRight)
                 queryR(n->right, col, queryPoints, indices, distances, cnt);
             else
@@ -334,12 +357,9 @@ namespace kdt
                 // the other child
                 // check which is the minimum distance so far
                 Scalar dist = distances.col(col).minCoeff();
-                // get distance to splitting point
-                Scalar diff = val - n->splitpoint;
-                diff = diff < 0 ? -diff : diff;
                 // check if distance to splitting point is lower than
                 // current minimum distance
-                if(diff < dist)
+                if(distMid < dist)
                 {
                     // if right was already visited check left child now
                     if(visitRight)
@@ -409,10 +429,19 @@ namespace kdt
         /** Set the amount of threads that should be used for building and
           * querying the tree.
           * OMP has to be enabled for this to work.
-          * @param threads amount of threads, -1 for optimal choice */
-        void setThreads(const int threads)
+          * @param threads amount of threads, 0 for optimal choice */
+        void setThreads(const unsigned int threads)
         {
             threads_ = threads;
+        }
+
+        /** Set the maximum distance for querying the tree.
+          * The search will be pruned if the maximum distance is set to any
+          * positive number.
+          * @param maxDist maximum distance, 0 for no limit */
+        void setMaxDistance(const Scalar maxDist)
+        {
+            maxDist_ = maxDist;
         }
 
         /** Set the data points used for this tree.
@@ -447,22 +476,18 @@ namespace kdt
                 clearRoot();
 
             Index n = data_->cols();
-            IndexVector idx(n);
+            VectorI idx(n);
             for(Index i = 0; i < n; ++i)
                 idx(i) = i;
 
             #ifndef _MSC_VER
-            #pragma omp parallel num_threads(threads_ > 0 ? threads_ : omp_get_max_threads())
+            #pragma omp parallel num_threads(threads_)
+            #pragma omp single
             #endif
             {
-                #ifndef _MSC_VER
-                #pragma omp single
-                #endif
-                {
-                    Vector mins, maxes;
-                    findBoundaries(*data_, idx, mins, maxes);
-                    root_ = buildR(*data_, idx, mins, maxes);
-                }
+                Vector mins, maxes;
+                findDataMinMax(*data_, idx, mins, maxes);
+                root_ = buildR(*data_, idx, mins, maxes);
             }
         }
 
@@ -485,10 +510,9 @@ namespace kdt
                 throw std::runtime_error("cannot query KDTree; data and query points do not have same dimension");
 
             distances.setZero(knn, queryPoints.cols());
-            indices.setOnes(knn, queryPoints.cols());
-            indices *= -1;
+            indices.setConstant(knn, queryPoints.cols(), -1);
 
-            #pragma omp parallel for num_threads(threads_ > 0 ? threads_ : omp_get_max_threads())
+            #pragma omp parallel for num_threads(threads_)
             for(Index i = 0; i < queryPoints.cols(); ++i)
             {
                 Index cnt = 0;
