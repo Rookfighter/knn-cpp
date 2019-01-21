@@ -389,7 +389,7 @@ namespace kdt
         /** Constructs an empty KDTree. */
         KDTree()
             : dataCopy_(), data_(nullptr), bucketSize_(16),
-            sorted_(true), threads_(1), distance_(), root_(nullptr)
+            sorted_(true), threads_(1), maxDist_(0), distance_(), root_(nullptr)
         {
 
         }
