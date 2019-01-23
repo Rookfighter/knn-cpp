@@ -16,6 +16,8 @@ endif(CMAKE_COMPILER_IS_GNUCXX)
 
 # Find Flann
 find_package(Flann)
+# Find ANN
+# find_package(ANN)
 
 # find OpenMP
 find_package(OpenMP)
@@ -34,10 +36,14 @@ include_directories(
 )
 
 if(${FLANN_FOUND})
-    include_directories(${FLANN_INCLUDE_DIR})
+    include_directories(${FLANN_INCLUDE_DIRS})
 endif(${FLANN_FOUND})
+if(${ANN_FOUND})
+    include_directories(${ANN_INCLUDE_DIRS})
+endif(${ANN_FOUND})
 
 install(FILES
+    "include/kdtree_ann.h"
     "include/kdtree_eigen.h"
     "include/kdtree_flann.h"
     DESTINATION include)
@@ -51,6 +57,10 @@ if(${BUILD_TESTS})
     if(${FLANN_FOUND})
         list(APPEND TEST_SRC "test/test_kdtree_flann.cpp")
     endif(${FLANN_FOUND})
+    if(${ANN_FOUND})
+        list(APPEND TEST_SRC "test/test_kdtree_ann.cpp")
+    endif(${ANN_FOUND})
 
     add_executable(run_tests ${TEST_SRC})
+    target_link_libraries(run_tests ${FLANN_LIBRARIES} ${ANN_LIBRARIES})
 endif(${BUILD_TESTS})
