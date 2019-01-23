@@ -127,9 +127,11 @@ namespace kdt
             if(dataPoints_->rows() != queryPoints.rows())
                 throw std::runtime_error("cannot query KDTree; KDTree has different dimension than query data");
 
-            distances.setConstant(knn, queryPoints.cols(), 1.0 / 0.0);
-            indices.setConstant(knn, queryPoints.cols(), -1);
+            // resize result matrices
+            distances.resize(knn, queryPoints.cols());
+            indices.resize(knn, queryPoints.cols());
 
+            // wrap matrices into flann matrices
             flann::Matrix<Scalar> queryPts(
                 queryPoints.data(),
                 queryPoints.cols(),
@@ -143,15 +145,31 @@ namespace kdt
                 distances.cols(),
                 distances.rows());
 
+            // if maximum distance was set then use radius search
             if(maxDist_ > 0)
-            {
-                flann::SearchParams params = searchParams_;
-                params.max_neighbors = knn;
-                index_->radiusSearch(queryPts, indicesF, distancesF, maxDist_, params);
-            }
+                index_->radiusSearch(queryPts, indicesF, distancesF, maxDist_, searchParams_);
             else
-            {
                 index_->knnSearch(queryPts, indicesF, distancesF, knn, searchParams_);
+
+            // calculate infinity
+            Scalar inf = 1.0 / 0.0;
+
+            // make result matrices compatible to API
+            #pragma omp parallel for num_threads(searchParams_.cores)
+            for(Index i = 0; i < indices.cols(); ++i)
+            {
+                bool found = false;
+                for(Index j = 0; j < indices.rows(); ++j)
+                {
+                    if(found)
+                    {
+                        indices(j, i) = -1;
+                        distances(j, i) = inf;
+                    }
+
+                    if(indices(j, i) == -1)
+                        found = true;
+                }
             }
         }
 
