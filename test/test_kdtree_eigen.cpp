@@ -15,7 +15,7 @@ TEST_CASE("KDTree")
 
     SECTION("build normal")
     {
-        Eigen::MatrixXd data(3, 3);
+        KDTreed::Matrix data(3, 3);
         data << 1, 3, 0,
             0, 1, 2,
             3, 2, 0;
@@ -27,14 +27,14 @@ TEST_CASE("KDTree")
         REQUIRE(kdtree.tree() != nullptr);
         REQUIRE(kdtree.tree()->left != nullptr);
         REQUIRE(kdtree.tree()->left->isLeaf());
-        REQUIRE(kdtree.tree()->left->idx.size() == 2);
-        REQUIRE(kdtree.tree()->left->idx(0) == 0);
-        REQUIRE(kdtree.tree()->left->idx(1) == 2);
+        REQUIRE(kdtree.tree()->left->indices.size() == 2);
+        REQUIRE(kdtree.tree()->left->indices(0) == 0);
+        REQUIRE(kdtree.tree()->left->indices(1) == 2);
 
         REQUIRE(kdtree.tree()->right != nullptr);
         REQUIRE(kdtree.tree()->right->isLeaf());
-        REQUIRE(kdtree.tree()->right->idx.size() == 1);
-        REQUIRE(kdtree.tree()->right->idx(0) == 1);
+        REQUIRE(kdtree.tree()->right->indices.size() == 1);
+        REQUIRE(kdtree.tree()->right->indices(0) == 1);
     }
 
     SECTION("build no data")
@@ -44,7 +44,7 @@ TEST_CASE("KDTree")
 
     SECTION("build empty")
     {
-        Eigen::MatrixXd data(3, 0);
+        KDTreed::Matrix data(3, 0);
 
         kdtree.setData(data);
         REQUIRE(kdtree.size() == 0);
@@ -53,7 +53,7 @@ TEST_CASE("KDTree")
 
     SECTION("build parallel")
     {
-        Eigen::MatrixXd data(3, 9);
+        KDTreed::Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 3,
                 2, 1, 0, 3, 2, 1, 0, 3, 0,
                 2, 1, 3, 1, 2, 2, 3, 2, 1;
@@ -67,7 +67,7 @@ TEST_CASE("KDTree")
 
     SECTION("query one")
     {
-        Eigen::MatrixXd data(3, 3);
+        KDTreed::Matrix data(3, 3);
         data << 1, 3, 0,
             0, 1, 2,
             3, 2, 0;
@@ -77,10 +77,10 @@ TEST_CASE("KDTree")
         kdtree.build();
         REQUIRE(kdtree.size() == 3);
 
-        Eigen::MatrixXd points(3, 1);
+        KDTreed::Matrix points(3, 1);
         points << 0, 1, 0;
-        Eigen::MatrixXi indices;
-        Eigen::MatrixXd distances;
+        KDTreed::MatrixI indices;
+        KDTreed::Matrix distances;
 
         kdtree.query(points, 1, indices, distances);
 
@@ -92,7 +92,7 @@ TEST_CASE("KDTree")
 
     SECTION("query all")
     {
-        Eigen::MatrixXd data(3, 9);
+        KDTreed::Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 3,
                 2, 1, 0, 3, 2, 1, 0, 3, 0,
                 2, 1, 3, 1, 2, 2, 3, 2, 1;
@@ -103,11 +103,11 @@ TEST_CASE("KDTree")
 
         REQUIRE(kdtree.size() == 9);
 
-        Eigen::MatrixXd points(3, 1);
+        KDTreed::Matrix points(3, 1);
         points << 0, 1, 0;
 
-        Eigen::MatrixXi indices;
-        Eigen::MatrixXd distances;
+        KDTreed::MatrixI indices;
+        KDTreed::Matrix distances;
         kdtree.query(points, 9, indices, distances);
 
         REQUIRE(indices.size() == 9);
@@ -121,7 +121,7 @@ TEST_CASE("KDTree")
 
     SECTION("query maximum distance")
     {
-        Eigen::MatrixXd data(3, 3);
+        KDTreed::Matrix data(3, 3);
         data << 1, 3, 0,
             0, 1, 2,
             3, 2, 0;
@@ -132,10 +132,10 @@ TEST_CASE("KDTree")
 
         REQUIRE(kdtree.size() == 3);
 
-        Eigen::MatrixXd points(3, 1);
+        KDTreed::Matrix points(3, 1);
         points << 0, 1, 0;
-        Eigen::MatrixXi indices;
-        Eigen::MatrixXd distances;
+        KDTreed::MatrixI indices;
+        KDTreed::Matrix distances;
 
         kdtree.query(points, 2, indices, distances);
 
