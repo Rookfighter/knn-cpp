@@ -82,15 +82,16 @@ TEST_CASE("KDTreeFlann")
 
     SECTION("query maximum distance")
     {
-        KDTree::Matrix data(3, 3);
-        data << 1, 3, 0,
-            0, 1, 2,
-            3, 2, 0;
+        KDTree::Matrix data(3, 4);
+        data << 1, 3, 0, 5,
+            0, 1, 3, 4,
+            3, 2, 0, 3;
+
         kdtree.setData(data);
-        kdtree.setMaxDistance(1.5);
+        kdtree.setMaxDistance(4.1);
         kdtree.build();
 
-        REQUIRE(kdtree.size() == 3);
+        REQUIRE(kdtree.size() == 4);
 
         KDTree::Matrix points(3, 1);
         points << 0, 1, 0;
@@ -105,7 +106,7 @@ TEST_CASE("KDTreeFlann")
         REQUIRE(indices(1, 0) == -1);
         REQUIRE(distances.cols() == 1);
         REQUIRE(distances.rows() == 2);
-        REQUIRE(distances(0, 0) == Approx(1.0));
+        REQUIRE(distances(0, 0) == Approx(4.0));
         REQUIRE(distances(1, 0) == 1.0 / 0.0);
     }
 }
