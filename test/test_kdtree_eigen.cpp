@@ -7,15 +7,15 @@
 #include <catch.hpp>
 #include <kdtree_eigen.h>
 
-using namespace kdt;
+typedef kdt::KDTreed KDTree;
 
 TEST_CASE("KDTree")
 {
-    KDTreed kdtree;
+    KDTree kdtree;
 
     SECTION("build normal")
     {
-        KDTreed::Matrix data(3, 3);
+        KDTree::Matrix data(3, 3);
         data << 1, 3, 0,
             0, 1, 2,
             3, 2, 0;
@@ -44,7 +44,7 @@ TEST_CASE("KDTree")
 
     SECTION("build empty")
     {
-        KDTreed::Matrix data(3, 0);
+        KDTree::Matrix data(3, 0);
 
         kdtree.setData(data);
         REQUIRE(kdtree.size() == 0);
@@ -53,7 +53,7 @@ TEST_CASE("KDTree")
 
     SECTION("build parallel")
     {
-        KDTreed::Matrix data(3, 9);
+        KDTree::Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 3,
                 2, 1, 0, 3, 2, 1, 0, 3, 0,
                 2, 1, 3, 1, 2, 2, 3, 2, 1;
@@ -67,20 +67,21 @@ TEST_CASE("KDTree")
 
     SECTION("query one")
     {
-        KDTreed::Matrix data(3, 3);
-        data << 1, 3, 0,
-            0, 1, 2,
-            3, 2, 0;
+        KDTree::Matrix data(3, 4);
+        data << 1, 3, 0, 5,
+            0, 1, 2, 4,
+            3, 2, 0, 3;
 
         kdtree.setBucketSize(2);
         kdtree.setData(data);
         kdtree.build();
-        REQUIRE(kdtree.size() == 3);
 
-        KDTreed::Matrix points(3, 1);
+        REQUIRE(kdtree.size() == 4);
+
+        KDTree::Matrix points(3, 1);
         points << 0, 1, 0;
-        KDTreed::MatrixI indices;
-        KDTreed::Matrix distances;
+        KDTree::MatrixI indices;
+        KDTree::Matrix distances;
 
         kdtree.query(points, 1, indices, distances);
 
@@ -92,7 +93,7 @@ TEST_CASE("KDTree")
 
     SECTION("query all")
     {
-        KDTreed::Matrix data(3, 9);
+        KDTree::Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 3,
                 2, 1, 0, 3, 2, 1, 0, 3, 0,
                 2, 1, 3, 1, 2, 2, 3, 2, 1;
@@ -103,11 +104,11 @@ TEST_CASE("KDTree")
 
         REQUIRE(kdtree.size() == 9);
 
-        KDTreed::Matrix points(3, 1);
+        KDTree::Matrix points(3, 1);
         points << 0, 1, 0;
 
-        KDTreed::MatrixI indices;
-        KDTreed::Matrix distances;
+        KDTree::MatrixI indices;
+        KDTree::Matrix distances;
         kdtree.query(points, 9, indices, distances);
 
         REQUIRE(indices.size() == 9);
@@ -121,21 +122,21 @@ TEST_CASE("KDTree")
 
     SECTION("query maximum distance")
     {
-        KDTreed::Matrix data(3, 3);
-        data << 1, 3, 0,
-            0, 1, 2,
-            3, 2, 0;
-        kdtree.setBucketSize(2);
+        KDTree::Matrix data(3, 4);
+        data << 1, 3, 0, 5,
+            0, 1, 3, 4,
+            3, 2, 0, 3;
+
         kdtree.setData(data);
-        kdtree.setMaxDistance(1.5);
+        kdtree.setMaxDistance(4.1);
         kdtree.build();
 
-        REQUIRE(kdtree.size() == 3);
+        REQUIRE(kdtree.size() == 4);
 
-        KDTreed::Matrix points(3, 1);
+        KDTree::Matrix points(3, 1);
         points << 0, 1, 0;
-        KDTreed::MatrixI indices;
-        KDTreed::Matrix distances;
+        KDTree::MatrixI indices;
+        KDTree::Matrix distances;
 
         kdtree.query(points, 2, indices, distances);
 
@@ -145,7 +146,7 @@ TEST_CASE("KDTree")
         REQUIRE(indices(1, 0) == -1);
         REQUIRE(distances.cols() == 1);
         REQUIRE(distances.rows() == 2);
-        REQUIRE(distances(0, 0) == Approx(1.0));
-        REQUIRE(distances(1, 0) == 0.0);
+        REQUIRE(distances(0, 0) == Approx(4.0));
+        REQUIRE(distances(1, 0) == 1.0 / 0.0);
     }
 }

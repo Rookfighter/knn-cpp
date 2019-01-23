@@ -45,15 +45,27 @@ namespace kdt
         }
     };
 
+    template <typename Scalar>
+    struct EuclideanDistanceSq
+    {
+        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
+
+        Scalar operator()(const Vector &vecA, const Vector &vecB) const
+        {
+            return (vecA - vecB).squaredNorm();
+        }
+    };
+
     /** Class for performing k nearest neighbour searches. */
     template<typename Scalar,
-        typename Distance=EuclideanDistance<Scalar>,
+        typename Distance=EuclideanDistanceSq<Scalar>,
         typename Index=typename Eigen::Matrix<Scalar, 1, 1>::Index>
     class KDTree
     {
     public:
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
+        typedef Eigen::Matrix<Scalar, 1, 1> Vector1;
         typedef Eigen::Matrix<Index, Eigen::Dynamic, 1> VectorI;
         typedef Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic> MatrixI;
 
@@ -358,7 +370,7 @@ namespace kdt
                 Scalar dist = distance_(queryPoints.col(col), data_->col(c));
 
                 // if distance is greater than maximum distance then skip
-                if(maxDist_ > 0 && dist > maxDist_)
+                if(maxDist_ > 0 && dist >= maxDist_)
                     continue;
 
                 // check if all places in the result vector are already in use
@@ -414,10 +426,11 @@ namespace kdt
                 queryR(n->left, col, queryPoints, queryResult);
 
             // get distance to midpoint
-            Scalar distMid = std::abs(val - n->splitpoint);
+            Scalar distMid = distance_(Vector1(val), Vector1(n->splitpoint));
+
             // if distance is greater than maximum distance then return
             // the points on the other side cannot be closer then
-            if(maxDist_ > 0 && distMid > maxDist_)
+            if(maxDist_ > 0 && distMid >= maxDist_)
                 return;
 
             if(!queryResult.isFull())
@@ -596,7 +609,7 @@ namespace kdt
             if(queryPoints.rows() != dimension())
                 throw std::runtime_error("cannot query KDTree; data and query points do not have same dimension");
 
-            distances.setZero(knn, queryPoints.cols());
+            distances.setConstant(knn, queryPoints.cols(), 1.0 / 0.0);
             indices.setConstant(knn, queryPoints.cols(), -1);
 
             #pragma omp parallel for num_threads(threads_)
