@@ -23,9 +23,31 @@ namespace kdt
         }
     };
 
+    template <typename Scalar>
+    struct ManhattenDistance
+    {
+        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
+
+        Scalar operator()(const Vector &vecA, const Vector &vecB) const
+        {
+            return (vecA - vecB).abs().sum();
+        }
+    };
+
+    template <typename Scalar>
+    struct EuclideanDistance
+    {
+        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
+
+        Scalar operator()(const Vector &vecA, const Vector &vecB) const
+        {
+            return (vecA - vecB).norm();
+        }
+    };
+
     /** Class for performing k nearest neighbour searches. */
     template<typename Scalar,
-        typename Distance=MinkowskiDistance<Scalar, 2>,
+        typename Distance=EuclideanDistance<Scalar>,
         typename Index=typename Eigen::Matrix<Scalar, 1, 1>::Index>
     class KDTree
     {
