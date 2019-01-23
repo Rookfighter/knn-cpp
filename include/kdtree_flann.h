@@ -26,17 +26,20 @@ namespace kdt
         typedef flann::Index<Distance> FlannIndex;
 
         Matrix dataCopy_;
-        flann::Matrix<Scalar> data_;
+        Matrix *dataPoints_;
 
         FlannIndex *index_;
-        flann::SearchParams params_;
+        flann::SearchParams searchParams_;
+        flann::IndexParams indexParams_;
+        Scalar maxDist_;
 
     public:
         KDTreeFlann()
-            : dataCopy_(), data_(nullptr, 0, 0), index_(nullptr),
-            params_(0, 0, false)
+            : dataCopy_(), dataPoints_(nullptr), index_(nullptr),
+            searchParams_(32, 0, false),
+            indexParams_(flann::KDTreeSingleIndexParams(15)),
+            maxDist_(0)
         {
-            index_ = new FlannIndex(flann::KDTreeSingleIndexParams(15));
         }
 
         KDTreeFlann(Matrix &data, const bool copy = false)
@@ -47,36 +50,37 @@ namespace kdt
 
         ~KDTreeFlann()
         {
-            if(index_ != nullptr)
-                delete index_;
+            clear();
         }
 
         void setIndexParams(const flann::IndexParams &params)
         {
-            if(index_ != nullptr)
-                delete index_;
-
-            index_ = new FlannIndex(params);
+            indexParams_ = params;
         }
 
-        void setLeafVisits(const int visits)
+        void setChecks(const int checks)
         {
-            params_.checks = visits;
+            searchParams_.checks = checks;
         }
 
         void setSorted(const bool sorted)
         {
-            params_.sorted = sorted;
+            searchParams_.sorted = sorted;
         }
 
         void setThreads(const int threads)
         {
-            params_.cores = threads;
+            searchParams_.cores = threads;
         }
 
         void setEpsilon(const float eps)
         {
-            params_.eps = eps;
+            searchParams_.eps = eps;
+        }
+
+        void setMaxDistance(const Scalar dist)
+        {
+            maxDist_ = dist;
         }
 
         void setData(Matrix &data, const bool copy = false)
@@ -84,45 +88,52 @@ namespace kdt
             if(copy)
             {
                 dataCopy_ = data;
-                // switch rows and columns
-                // flann uses row major; eigen uses column major
-                data_ = flann::Matrix<Scalar>(dataCopy_.data(),
-                    dataCopy_.cols(), dataCopy_.rows());
+                dataPoints_ = &dataCopy_;
             }
             else
             {
-                // switch rows and columns
-                // flann uses row major; eigen uses column major
-                data_ = flann::Matrix<Scalar>(data.data(), data.cols(),
-                    data.rows());
+                dataPoints_ = &data;
             }
+
+            clear();
         }
 
         void build()
         {
-            if(data_.ptr() == nullptr)
+            if(dataPoints_ == nullptr)
                 throw std::runtime_error("cannot build KDTree; data not set");
+            if(dataPoints_->size() == 0)
+                throw std::runtime_error("cannot build KDTree; data is empty");
 
-            index_->buildIndex(data_);
+            if(index_ != nullptr)
+                delete index_;
+
+            flann::Matrix<Scalar> dataPts(
+                dataPoints_->data(),
+                dataPoints_->cols(),
+                dataPoints_->rows());
+
+            index_ = new FlannIndex(dataPts, indexParams_);
+            index_->buildIndex();
         }
 
-        int query(Matrix &points,
+        void query(Matrix &queryPoints,
             const size_t knn,
             MatrixI &indices,
             Matrix &distances) const
         {
-            if(index_->size() == 0)
+            if(index_ == nullptr)
                 throw std::runtime_error("cannot query KDTree; not built yet");
-            if(static_cast<Index>(index_->veclen()) != points.rows())
-                throw std::runtime_error("cannot query KDTree; index has different dimension than query data");
+            if(dataPoints_->rows() != queryPoints.rows())
+                throw std::runtime_error("cannot query KDTree; KDTree has different dimension than query data");
 
-            distances.setZero(knn, points.cols());
-            indices.setConstant(knn, points.cols(), -1);
+            distances.setConstant(knn, queryPoints.cols(), 1.0 / 0.0);
+            indices.setConstant(knn, queryPoints.cols(), -1);
 
-            const flann::Matrix<Scalar> pointsF(
-                points.data(),
-                points.cols(),
-                points.rows());
+            flann::Matrix<Scalar> queryPts(
+                queryPoints.data(),
+                queryPoints.cols(),
+                queryPoints.rows());
             flann::Matrix<int> indicesF(
                 indices.data(),
                 indices.cols(),
@@ -132,15 +143,40 @@ namespace kdt
                 distances.cols(),
                 distances.rows());
 
-            return index_->knnSearch(pointsF, indicesF, distancesF, knn,
-                params_);
+            if(maxDist_ > 0)
+            {
+                flann::SearchParams params = searchParams_;
+                params.max_neighbors = knn;
+                index_->radiusSearch(queryPts, indicesF, distancesF, maxDist_, params);
+            }
+            else
+            {
+                index_->knnSearch(queryPts, indicesF, distancesF, knn, searchParams_);
+            }
+        }
+
+        Index size() const
+        {
+            return dataPoints_ == nullptr ? 0 : dataPoints_->cols();
+        }
+
+        Index dimension() const
+        {
+            return dataPoints_ == nullptr ? 0 : dataPoints_->rows();
         }
 
         void clear()
         {
-            FlannIndex *tmp = new FlannIndex(index_->getParameters());
-            delete index_;
-            index_ = tmp;
+            if(index_ != nullptr)
+            {
+                delete index_;
+                index_ = nullptr;
+            }
+        }
+
+        FlannIndex &flannIndex()
+        {
+            return index_;
         }
     };
 
