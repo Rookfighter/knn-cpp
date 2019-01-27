@@ -13,29 +13,34 @@ TEST_CASE("KDTree")
 {
     KDTree kdtree;
 
-    SECTION("build normal")
+    SECTION("build unbalanced")
     {
-        KDTree::Matrix data(3, 3);
-        data << 1, 3, 0,
-            0, 1, 2,
-            3, 2, 0;
+        KDTree::Matrix data(3, 4);
+        data << 1, 3, 0, 1,
+            0, 1, 2, 0,
+            3, 2, 0, 1;
         kdtree.setBucketSize(2);
         kdtree.setData(data);
         kdtree.build();
 
-        REQUIRE(kdtree.size() == 3);
-        REQUIRE(kdtree.tree() != nullptr);
-        REQUIRE(kdtree.tree()->left != nullptr);
-        REQUIRE(kdtree.tree()->left->isLeaf());
-        REQUIRE(kdtree.tree()->left->indices.size() == 2);
-        REQUIRE(kdtree.tree()->left->indices(0) == 0);
-        REQUIRE(kdtree.tree()->left->indices(1) == 2);
-
-        REQUIRE(kdtree.tree()->right != nullptr);
-        REQUIRE(kdtree.tree()->right->isLeaf());
-        REQUIRE(kdtree.tree()->right->indices.size() == 1);
-        REQUIRE(kdtree.tree()->right->indices(0) == 1);
+        REQUIRE(kdtree.size() == 4);
+        REQUIRE(kdtree.depth() == 3);
     }
+
+    // SECTION("build balanced")
+    // {
+    //     KDTree::Matrix data(3, 4);
+    //     data << 1, 3, 0, 1,
+    //         0, 1, 2, 0,
+    //         3, 2, 0, 1;
+    //     kdtree.setBucketSize(2);
+    //     kdtree.setData(data);
+    //     kdtree.setBalanced(true);
+    //     kdtree.build();
+    //
+    //     REQUIRE(kdtree.size() == 4);
+    //     REQUIRE(kdtree.depth() == 2);
+    // }
 
     SECTION("build no data")
     {
@@ -49,20 +54,6 @@ TEST_CASE("KDTree")
         kdtree.setData(data);
         REQUIRE(kdtree.size() == 0);
         REQUIRE_THROWS(kdtree.build());
-    }
-
-    SECTION("build parallel")
-    {
-        KDTree::Matrix data(3, 9);
-        data << 1, 2, 3, 1, 2, 3, 1, 2, 3,
-                2, 1, 0, 3, 2, 1, 0, 3, 0,
-                2, 1, 3, 1, 2, 2, 3, 2, 1;
-
-        kdtree.setData(data);
-        kdtree.setThreads(4);
-        kdtree.build();
-
-        REQUIRE(kdtree.tree() != nullptr);
     }
 
     SECTION("query one")

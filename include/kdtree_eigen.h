@@ -75,6 +75,7 @@ namespace kdt
         typedef Eigen::Matrix<Index, Eigen::Dynamic, 1> VectorI;
         typedef Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic> MatrixI;
 
+    private:
         /** Struct representing a node in the KDTree.
           * It can be either a inner node or a leaf node. */
         struct Node
@@ -137,12 +138,77 @@ namespace kdt
             }
         };
 
-    private:
+        class QueryHeap
+        {
+        public:
+            struct Element
+            {
+                Index idx;
+                Scalar distance;
+
+                Element(const Index idx, const Scalar dist)
+                :idx(idx), distance(dist) { }
+            };
+        private:
+            std::vector<Element> data_;
+            size_t maxSize_;
+
+            static bool comp(const Element &lhs, const Element &rhs)
+            {
+                return lhs.distance < rhs.distance;
+            }
+        public:
+
+            QueryHeap(const size_t size)
+            : data_(), maxSize_(size)
+            {
+                data_.reserve(maxSize_);
+            }
+
+            void push(const Element &val)
+            {
+                if(full())
+                    throw std::runtime_error("heap is full");
+                data_.push_back(val);
+                std::push_heap(data_.begin(), data_.end(), comp);
+            }
+
+            void pop()
+            {
+                std::pop_heap(data_.begin(), data_.end(), comp);
+                data_.pop_back();
+            }
+
+            const Element &front() const
+            {
+                return data_.front();
+            }
+
+            bool full() const
+            {
+                return data_.size() >= maxSize_;
+            }
+
+            bool empty() const
+            {
+                return data_.empty();
+            }
+
+            void sort()
+            {
+                std::sort_heap(data_.begin(), data_.end(), comp);
+            }
+
+            const std::vector<Element> &data() const
+            {
+                return data_;
+            }
+        };
+
         Matrix dataCopy_;
         const Matrix *data_;
         std::vector<Index> indices_;
         std::vector<Node> nodes_;
-        Node *root_;
 
         Index bucketSize_;
         bool sorted_;
@@ -153,45 +219,17 @@ namespace kdt
 
         Distance distance_;
 
-        struct QueryResult
-        {
-            MatrixI &indices;
-            Matrix &distances;
-            Index count;
-            Index min;
-            Index max;
-
-            QueryResult(MatrixI &indices, Matrix &distances)
-            :indices(indices), distances(distances), count(0), min(0), max(0)
-            { }
-
-            bool isFull() const
-            {
-                return count >= indices.rows();
-            }
-
-            Scalar getMaxDistance(const Index col) const
-            {
-                return distances(max, col);
-            }
-
-            Scalar getMinDistance(const Index col) const
-            {
-                return distances(min, col);
-            }
-        };
-
         /** Finds the minimum and maximum values of each dimension (row) in the
          *  data matrix. Only respects the columns specified by the index
          *  vector. */
         void findDataMinMax(const Index startIdx,
-            const Index length,,
+            const Index length,
             Vector &mins,
             Vector &maxes) const
         {
             assert(length > 0);
             assert(startIdx >= 0);
-            assert(startIdx + length <= indices_.size());
+            assert(static_cast<size_t>(startIdx + length) <= indices_.size());
 
             const Matrix &data = *data_;
 
@@ -227,14 +265,18 @@ namespace kdt
         Index buildInnerNode(const Index startIdx,
             const Index length,
             const Vector &mins,
-            const Vector &maxes) const
+            const Vector &maxes)
         {
             assert(startIdx >= 0);
             assert(length > 0);
-            assert(startIdx  + length <= indices_.size());
+            assert(static_cast<size_t>(startIdx  + length) <= indices_.size());
             assert(maxes.size() == mins.size());
 
             const Matrix &data = *data_;
+
+            // create node
+            Index nodeIdx = nodes_.size();
+            nodes_.push_back(Node());
 
             // search for axis with longest distance
             Index splitaxis = 0;
@@ -255,8 +297,8 @@ namespace kdt
             // this basically means that all data points are the same
             if(minval == maxval)
             {
-                nodes_.push_back(Node(startIdx, length));
-                return nodes_.size() - 1;
+                nodes_[nodeIdx] = Node(startIdx, length);
+                return nodeIdx;
             }
 
             // determine split point
@@ -267,8 +309,8 @@ namespace kdt
                 // use median for splitpoint
                 // TODO currIndices is supposed to be sorted along split axis
                 // auto compPred =
-                //     [const &data, splitaxis](const Index lhs, const Index rhs)
-                //     { return data(splitaxis, lhs) < data(splitaxis, rhs); }
+                //     [&data, splitaxis](const Index lhs, const Index rhs)
+                //     { return data(splitaxis, lhs) < data(splitaxis, rhs); };
                 // std::sort(indices_.begin() + startIdx,
                 //     indices_.begin() + startIdx + length,
                 //     compPred);
@@ -347,7 +389,7 @@ namespace kdt
                 for(Index i = 0; i < length; ++i)
                 {
                     Index idx = startIdx + i;
-                    Scalar val = data(splitaxis, indices_[idx])
+                    Scalar val = data(splitaxis, indices_[idx]);
                     if(val > splitpoint)
                     {
                         maxIdx = idx;
@@ -395,17 +437,17 @@ namespace kdt
                 for(Index i = 0; i < mins.size(); ++i)
                     mids(i) = mins(i);
                 mids(splitaxis) = splitpoint;
-                rightNode = buildR(leftStart, leftLength, mids, maxes);
+                rightNode = buildR(rightStart, rightLength, mids, maxes);
             }
 
-            nodes_.push_back(Node(splitaxis, splitpoint, leftNode, rightNode));
-            return nodes_.size() - 1;
+            nodes_[nodeIdx] = Node(splitaxis, splitpoint, leftNode, rightNode);
+            return nodeIdx;
         }
 
         Index buildR(const Index startIdx,
             const Index length,
             const Vector &mins,
-            const Vector &maxes) const
+            const Vector &maxes)
         {
             // check for base case
             if(length <= bucketSize_)
@@ -417,144 +459,99 @@ namespace kdt
                 return buildInnerNode(startIdx, length, mins, maxes);
         }
 
-        void clearRoot()
+        void queryLeafNode(const Node &node,
+            const Vector &queryPoint,
+            QueryHeap &dataHeap) const
         {
-            clearR(root_);
-            root_ = nullptr;
-        }
+            assert(node.isLeaf());
 
-        void clearR(Node *node)
-        {
-            if(node->hasLeft())
-                clearR(node->left);
-            if(node->hasRight())
-                clearR(node->right);
-            delete node;
-        }
+            const Matrix &data = *data_;
 
-        void queryLeafNode(const Node *n,
-            const Index col,
-            const Matrix &queryPoints,
-            QueryResult &queryResult) const
-        {
-            assert(n->isLeaf());
-
-            // go through all points in this leaf node
-            for(Index i = 0; i < n->indices.size(); ++i)
+            // go through all points in this leaf node and do brute force search
+            for(Index i = 0; i < node.length; ++i)
             {
-                // retrieve index of this child
-                Index c = n->indices(i);
-                Scalar dist = distance_(queryPoints.col(col), data_->col(c));
+                size_t idx = node.startIdx + i;
+                assert(idx < indices_.size());
+
+                // retrieve index of the current data point
+                Index dataIdx = indices_[idx];
+                Scalar dist = distance_(queryPoint, data.col(dataIdx));
 
                 // if distance is greater than maximum distance then skip
                 if(maxDist_ > 0 && dist >= maxDist_)
                     continue;
 
                 // check if all places in the result vector are already in use
-                if(!queryResult.isFull())
+                if(dataHeap.full())
                 {
-                    // if the result vector is not full simply append
-                    queryResult.indices(queryResult.count, col) = c;
-                    queryResult.distances(queryResult.count, col) = dist;
-                    ++queryResult.count;
-
-                    Scalar currMax = queryResult.getMaxDistance(col);
-                    Scalar currMin = queryResult.getMinDistance(col);
-                    if(dist > currMax)
-                        queryResult.max = c;
-                    if(dist < currMin)
-                        queryResult.min = c;
+                    Scalar currMaxDist = dataHeap.front().distance;
+                    if(dist < currMaxDist)
+                    {
+                        dataHeap.pop();
+                        dataHeap.push({dataIdx, dist});
+                    }
                 }
                 else
                 {
-                    // result vector is full, retrieve current maximum distance
-                    Scalar currMax = queryResult.getMaxDistance(col);
-                    // check if this distance is an improvement
-                    if(dist < currMax)
-                    {
-                        // replace old max
-                        queryResult.indices(queryResult.max, col) = c;
-                        queryResult.distances(queryResult.max, col) = dist;
-                        // find new maximum value
-                        queryResult.distances.col(col).maxCoeff(&queryResult.max);
-                        // update minimum
-                        Scalar currMin = queryResult.getMinDistance(col);
-                        if(dist < currMin)
-                            queryResult.min = c;
-                    }
+                    dataHeap.push({dataIdx, dist});
                 }
             }
         }
 
-        void queryInnerNode(const Node *n,
-            const Index col,
-            const Matrix &queryPoints,
-            QueryResult &queryResult) const
+        void queryInnerNode(const Node &node,
+            const Vector &queryPoint,
+            QueryHeap &dataHeap) const
         {
-            assert(n->isInner());
+            assert(node.isInner());
 
-            Scalar val = queryPoints(n->splitaxis, col);
+            Scalar splitval = queryPoint(node.splitaxis);
 
             // check if right or left child should be visited
-            bool visitRight = visitRightNode(val, n->splitpoint, true);
+            bool visitRight = splitval >= node.splitpoint;
             if(visitRight)
-                queryR(n->right, col, queryPoints, queryResult);
+                queryR(nodes_[node.right], queryPoint, dataHeap);
             else
-                queryR(n->left, col, queryPoints, queryResult);
+                queryR(nodes_[node.left], queryPoint, dataHeap);
 
             // get distance to midpoint
-            Scalar distMid = distance_(Vector1(val), Vector1(n->splitpoint));
+            Scalar splitdist = distance_(Vector1(splitval),
+                Vector1(node.splitpoint));
 
             // if distance is greater than maximum distance then return
             // the points on the other side cannot be closer then
-            if(maxDist_ > 0 && distMid >= maxDist_)
+            if(maxDist_ > 0 && splitdist >= maxDist_)
                 return;
 
-            if(!queryResult.isFull())
+            Scalar currMaxDist = dataHeap.front().distance;
+            // if result is not full yet or maximum distance is greater than
+            // distance to splitpoint, then visit other child too
+            if(!dataHeap.full() || splitdist < currMaxDist)
             {
-                // if result is not full yet, just visit the other child, too
                 if(visitRight)
-                    queryR(n->left, col, queryPoints, queryResult);
+                    queryR(nodes_[node.left], queryPoint, dataHeap);
                 else
-                    queryR(n->right, col, queryPoints, queryResult);
-            }
-            else
-            {
-                // if cnt is full check if we could improve by visiting
-                // the other child
-                Scalar currMax = queryResult.getMaxDistance(col);
-                // check if distance to splitting point is lower than
-                // current maximum distance
-                if(distMid < currMax)
-                {
-                    // if right was already visited check left child now
-                    if(visitRight)
-                        queryR(n->left, col, queryPoints, queryResult);
-                    else
-                        queryR(n->right, col, queryPoints, queryResult);
-                }
+                    queryR(nodes_[node.right], queryPoint, dataHeap);
             }
         }
 
-        void queryR(const Node *n,
-            const Index col,
-            const Matrix &queryPoints,
-            QueryResult &queryResult) const
+        void queryR(const Node &node,
+            const Vector &queryPoint,
+            QueryHeap &dataHeap) const
         {
-            if(n->isLeaf())
-                queryLeafNode(n, col, queryPoints, queryResult);
+            if(node.isLeaf())
+                queryLeafNode(node, queryPoint, dataHeap);
             else
-                queryInnerNode(n, col, queryPoints, queryResult);
+                queryInnerNode(node, queryPoint, dataHeap);
         }
 
-        Index depthR(Node *n)
+        Index depthR(const Node &node) const
         {
-            if(n == nullptr)
-                return 0;
+            if(node.isLeaf())
+                return 1;
             else
             {
-                Index left = depthR(n->left);
-                Index right = depthR(n->right);
+                Index left = depthR(nodes_[node.left]);
+                Index right = depthR(nodes_[node.right]);
                 return std::max(left, right) + 1;
             }
         }
@@ -563,9 +560,9 @@ namespace kdt
 
         /** Constructs an empty KDTree. */
         KDTree()
-            : dataCopy_(), data_(nullptr), indices_(), nodes_(), root_(nullptr),
-            bucketSize_(16), sorted_(true), threads_(1), maxDist_(0),
-            distance_()
+            : dataCopy_(), data_(nullptr), indices_(), nodes_(),
+            bucketSize_(16), sorted_(true), compact_(true), balanced_(false),
+            threads_(0), maxDist_(0), distance_()
         {
 
         }
@@ -601,7 +598,20 @@ namespace kdt
             sorted_ = sorted;
         }
 
-        void setCompactTree(const bool compact)
+        /** Set if the tree should be built as balanced as possible.
+          * This increases build time, but decreases search time.
+          * @param balanced set true to build a balanced tree */
+        void setBalanced(const bool balanced)
+        {
+            throw std::runtime_error("KDTree::setBalanced not yet implemented");
+            balanced_ = balanced;
+        }
+
+        /** Set if the tree should be built with compact leaf nodes.
+          * This increases build time, but makes leaf nodes denser (more)
+          * points. Thus less visits are necessary.
+          * @param compact set true ti build a tree with compact leafs */
+        void setCompact(const bool compact)
         {
             compact_ = compact;
         }
@@ -655,7 +665,7 @@ namespace kdt
             clear();
 
             indices_.resize(data_->cols());
-            for(Index i = 0; i < indices_.size(); ++i)
+            for(size_t i = 0; i < indices_.size(); ++i)
                 indices_[i] = i;
 
             Vector mins, maxes;
@@ -664,7 +674,7 @@ namespace kdt
 
             findDataMinMax(startIdx, length, mins, maxes);
 
-            root_ = buildR(startIdx, length, mins, maxes);
+            Index root = buildR(startIdx, length, mins, maxes);
         }
 
         /** Queries the tree for the nearest neighbours of the given query
@@ -681,7 +691,7 @@ namespace kdt
             MatrixI &indices,
             Matrix &distances) const
         {
-            if(root_ == nullptr)
+            if(nodes_.size() == 0)
                 throw std::runtime_error("cannot query KDTree; not built yet");
 
             if(queryPoints.rows() != dimension())
@@ -693,23 +703,24 @@ namespace kdt
             #pragma omp parallel for num_threads(threads_)
             for(Index i = 0; i < queryPoints.cols(); ++i)
             {
-                QueryResult queryResult(indices, distances);
-                queryR(root_, i, queryPoints, queryResult);
+                // create heap to find nearest neighbours
+                QueryHeap dataHeap(knn);
+                queryR(nodes_.front(), queryPoints.col(i), dataHeap);
+
+                if(sorted_)
+                    dataHeap.sort();
+
+                for(size_t j = 0; j < dataHeap.data().size(); ++j)
+                {
+                    indices(j, i) = dataHeap.data()[i].idx;
+                    distances(j, i) = dataHeap.data()[i].distance;
+                }
             }
         }
 
         void clear()
         {
             nodes_.clear();
-            root_ = nullptr;
-        }
-
-        const Node &tree() const
-        {
-            if(root_ == nullptr)
-                throw std::runtime_error("KDTree not built yet");
-
-            return *root_;
         }
 
         Index size() const
@@ -724,7 +735,7 @@ namespace kdt
 
         Index depth() const
         {
-            return depthR(root_);
+            return nodes_.size() == 0 ? 0 : depthR(nodes_.front());
         }
     };
 
