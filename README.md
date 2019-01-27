@@ -18,8 +18,8 @@ that your build system can find them.
 There are different header files for different use cases:
 
 ```kdtree_eigen.h``` implements a pure ```Eigen3``` KDTree for KNN-search based
-on the paper [1] of Maneewongvatana and Mount. This only requires that ```Eigen3```
-can be found by your build system.
+on cKDTree by the scipy project and the paper of Maneewongvatana and Mount [1].
+This only requires that ```Eigen3``` can be found by your build system.
 
 ```kdtree_flann.h``` is a wrapper for the ```FLANN``` library such that it
 can be easily and efficiently used with Eigen3. This header assumes that ```Eigen3```
