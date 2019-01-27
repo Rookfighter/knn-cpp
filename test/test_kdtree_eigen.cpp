@@ -4,8 +4,8 @@
  * Created On: 08 Nov 2018
  */
 
-#include <catch.hpp>
 #include <kdtree_eigen.h>
+#include <catch.hpp>
 
 typedef kdt::KDTreed KDTree;
 

@@ -14,6 +14,9 @@
 #define KDT_KDTREE_EIGEN_H_
 
 #include <Eigen/Geometry>
+#include <vector>
+#include <queue>
+#include <algorithm>
 
 namespace kdt
 {
@@ -72,8 +75,8 @@ namespace kdt
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
         typedef Eigen::Matrix<Scalar, 1, 1> Vector1;
         typedef typename Matrix::Index Index;
-        typedef Eigen::Matrix<Index, Eigen::Dynamic, 1> VectorI;
         typedef Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic> MatrixI;
+        typedef Eigen::Matrix<Index, Eigen::Dynamic, 1> VectorI;
 
     private:
         /** Struct representing a node in the KDTree.
