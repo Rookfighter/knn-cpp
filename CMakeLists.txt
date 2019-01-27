@@ -35,11 +35,15 @@ include_directories(
     ${CATCH2_INCLUDE_DIR}
 )
 
+set(LIBS "")
+
 if(${FLANN_FOUND})
     include_directories(${FLANN_INCLUDE_DIRS})
+    list(APPEND LIBS ${FLANN_LIBRARIES})
 endif(${FLANN_FOUND})
 if(${ANN_FOUND})
     include_directories(${ANN_INCLUDE_DIRS})
+    list(APPEND LIBS ${ANN_LIBRARIES})
 endif(${ANN_FOUND})
 
 install(FILES
@@ -62,5 +66,7 @@ if(${BUILD_TESTS})
     endif(${ANN_FOUND})
 
     add_executable(run_tests ${TEST_SRC})
-    target_link_libraries(run_tests ${FLANN_LIBRARIES} ${ANN_LIBRARIES})
+    if(${LIBS})
+        target_link_libraries(run_tests ${LIBS})
+    endif(${LIBS})
 endif(${BUILD_TESTS})
