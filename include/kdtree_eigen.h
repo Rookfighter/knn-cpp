@@ -58,14 +58,14 @@ namespace kdt
 
     /** Class for performing k nearest neighbour searches. */
     template<typename Scalar,
-        typename Distance=EuclideanDistanceSq<Scalar>,
-        typename Index=typename Eigen::Matrix<Scalar, 1, 1>::Index>
+        typename Distance=EuclideanDistanceSq<Scalar>>
     class KDTree
     {
     public:
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
         typedef Eigen::Matrix<Scalar, 1, 1> Vector1;
+        typedef typename Matrix::Index Index;
         typedef Eigen::Matrix<Index, Eigen::Dynamic, 1> VectorI;
         typedef Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic> MatrixI;
 
@@ -78,16 +78,16 @@ namespace kdt
             Index length;
 
             /** Left child of this inner node. */
-            Node *left;
+            Index left;
             /** Right child of this inner node. */
-            Node *right;
+            Index right;
             /** Axis of the axis aligned splitting hyper plane. */
             Index splitaxis;
             /** Translation of the axis aligned splitting hyper plane. */
             Scalar splitpoint;
 
             Node()
-                : startIdx(0), length(0), left(nullptr), right(nullptr),
+                : startIdx(0), length(0), left(-1), right(-1),
                 splitaxis(-1), splitpoint(0)
             {
 
@@ -95,15 +95,15 @@ namespace kdt
 
             /** Constructor for leaf nodes */
             Node(const Index startIdx, const Index length)
-                : startIdx(startIdx), length(length), left(nullptr),
-                right(nullptr), splitaxis(-1), splitpoint(0)
+                : startIdx(startIdx), length(length), left(-1), right(-1),
+                splitaxis(-1), splitpoint(0)
             {
 
             }
 
             /** Constructor for inner nodes */
-            Node(const Index splitaxis, const Scalar splitpoint, Node *left,
-                Node *right)
+            Node(const Index splitaxis, const Scalar splitpoint,
+                const Index left, const Index right)
                 : startIdx(0), length(0), left(left), right(right),
                 splitaxis(splitaxis), splitpoint(splitpoint)
             {
@@ -122,19 +122,21 @@ namespace kdt
 
             bool hasLeft() const
             {
-                return left != nullptr;
+                return left >= 0;
             }
 
             bool hasRight() const
             {
-                return right != nullptr;
+                return right >= 0;
             }
         };
 
     private:
         Matrix dataCopy_;
         const Matrix *data_;
-        VectorI indices_;
+        std::vector<Index> indices_;
+        std::vector<Node> nodes_;
+        Node *root_;
 
         Index bucketSize_;
         bool sorted_;
@@ -144,8 +146,6 @@ namespace kdt
         Scalar maxDist_;
 
         Distance distance_;
-
-        Node *root_;
 
         struct QueryResult
         {
@@ -190,13 +190,13 @@ namespace kdt
             const Matrix &data = *data_;
 
             // initialize mins and maxes with first element of currIndices
-            mins = data.col(indices_(startIdx));
+            mins = data.col(indices_[startIdx]);
             maxes = mins;
             // search for min / max values in data
-            for(Index i = startIdx; i <= endIdx; ++i)
+            for(Index i = 0; i < length; ++i)
             {
                 // retrieve data index
-                Index col = indices_(i);
+                Index col = indices_[startIdx + i];
                 assert(col >= 0 && col < data.cols());
                 // check min and max for each dimension individually
                 for(Index j = 0; j < data.rows(); ++j)
@@ -218,47 +218,7 @@ namespace kdt
             return (inclusive && point >= midpoint) || point > midpoint;
         }
 
-        void splitAtMidpoint(const Matrix &data,
-            const VectorI &currIndices,
-            const Scalar midpoint,
-            const Index splitaxis,
-            VectorI &leftIndices,
-            VectorI &rightIndices,
-            bool rightInclusive) const
-        {
-            Index leftCnt = 0;
-            Index rightCnt = 0;
-            for(Index i = 0; i < currIndices.size(); ++i)
-            {
-                Scalar val = data(splitaxis, currIndices(i));
-                if(visitRightNode(val, midpoint, rightInclusive))
-                    ++rightCnt;
-                else
-                    ++leftCnt;
-            }
-
-            leftIndices.resize(leftCnt);
-            rightIndices.resize(rightCnt);
-            leftCnt = 0;
-            rightCnt = 0;
-
-            for(Index i = 0; i < currIndices.size(); ++i)
-            {
-                Scalar val = data(splitaxis, currIndices(i));
-                if(visitRightNode(val, midpoint, rightInclusive))
-                {
-                    rightIndices(rightCnt) = currIndices(i);
-                    ++rightCnt;
-                }
-                else
-                {
-                    leftIndices(leftCnt) = currIndices(i);
-                    ++leftCnt;
-                }
-            }
-        }
-
-        Node *buildInnerNode(const Index startIdx,
+        Index buildInnerNode(const Index startIdx,
             const Index length,
             const Vector &mins,
             const Vector &maxes) const
@@ -270,10 +230,6 @@ namespace kdt
 
             const Matrix &data = *data_;
 
-            // recompute mins and maxes if needed
-            if(compact_)
-                findDataMinMax(startIdx, length, mins, maxes);
-
             // search for axis with longest distance
             Index splitaxis = 0;
             Scalar splitsize = 0;
@@ -282,7 +238,7 @@ namespace kdt
                 Scalar diff = maxes(i) - mins(i);
                 if(diff > splitsize)
                 {
-                    splitaxis = 0;
+                    splitaxis = i;
                     splitsize = diff;
                 }
             }
@@ -292,7 +248,10 @@ namespace kdt
             // check if min and max are the same
             // this basically means that all data points are the same
             if(minval == maxval)
-                return new Node(currIndices);
+            {
+                nodes_.push_back(Node(startIdx, length));
+                return nodes_.size() - 1;
+            }
 
             // determine split point
             Scalar splitpoint;
@@ -301,7 +260,14 @@ namespace kdt
             {
                 // use median for splitpoint
                 // TODO currIndices is supposed to be sorted along split axis
-                Index idx = indices_(startIdx + length / 2);
+                // auto compPred =
+                //     [const &data, splitaxis](const Index lhs, const Index rhs)
+                //     { return data(splitaxis, lhs) < data(splitaxis, rhs); }
+                // std::sort(indices_.begin() + startIdx,
+                //     indices_.begin() + startIdx + length,
+                //     compPred);
+
+                Index idx = indices_[startIdx + length / 2];
                 splitpoint = data(splitaxis, idx);
             }
             else
@@ -310,60 +276,137 @@ namespace kdt
                 splitpoint = (minval + maxval) / 2;
             }
 
-            VectorI leftIndices, rightIndices;
-            // split points into left and right
-            splitAtMidpoint(data, currIndices, splitpoint, splitaxis, leftIndices,
-                rightIndices, false);
-
-            // check if left side is empty
-            // this means all values are greater than midpoint
-            if(leftIndices.size() == 0)
+            Index leftIdx = startIdx;
+            Index rightIdx = startIdx + length - 1;
+            while(leftIdx <= rightIdx)
             {
-                splitpoint = minval;
-                splitAtMidpoint(data, currIndices, splitpoint, splitaxis, leftIndices,
-                    rightIndices, false);
+                Scalar leftVal = data(splitaxis, indices_[leftIdx]);
+                Scalar rightVal = data(splitaxis, indices_[rightIdx]);
+
+                if(leftVal < splitpoint)
+                {
+                    // left value is less than split point
+                    // keep it on left side
+                    ++leftIdx;
+                }
+                else if(rightVal >= splitpoint)
+                {
+                    // right value is greater than split point
+                    // keep it on right side
+                    --rightIdx;
+                }
+                else
+                {
+                    // right value is less than splitpoint and left value is
+                    // greater than split point
+                    // simply swap sides
+                    Index tmpIdx = indices_[leftIdx];
+                    indices_[leftIdx] = indices_[rightIdx];
+                    indices_[rightIdx] = tmpIdx;
+                    ++leftIdx;
+                    --rightIdx;
+                }
             }
-            // check if right side is empty
-            // this means all values are leq than midpoint
-            if(rightIndices.size() == 0)
+
+            if(leftIdx == startIdx)
             {
-                splitpoint = maxval;
-                splitAtMidpoint(data, currIndices, splitpoint, splitaxis, leftIndices,
-                    rightIndices, true);
+                // no values on left side, resolve trivial split
+                // find value with minimum distance to splitpoint
+                Index minIdx = startIdx;
+                splitpoint = data(splitaxis, indices_[minIdx]);
+                for(Index i = 0; i < length; ++i)
+                {
+                    Index idx = startIdx + i;
+                    Scalar val = data(splitaxis, indices_[idx]);
+                    if(val < splitpoint)
+                    {
+                        minIdx = idx;
+                        splitpoint = val;
+                    }
+                }
+                // put value with minimum distance on the left
+                // this way there is exactly one value on the left
+                Index tmpIdx = indices_[startIdx];
+                indices_[startIdx] = indices_[minIdx];
+                indices_[minIdx] = tmpIdx;
+                leftIdx = startIdx + 1;
+                rightIdx = startIdx;
+            }
+            else if(leftIdx == startIdx + length)
+            {
+                // no values on right side, resolve trivial split
+                // find value with maximum distance to splitpoint
+                Index maxIdx = startIdx + length - 1;
+                splitpoint = data(splitaxis, indices_[maxIdx]);
+                for(Index i = 0; i < length; ++i)
+                {
+                    Index idx = startIdx + i;
+                    Scalar val = data(splitaxis, indices_[idx])
+                    if(val > splitpoint)
+                    {
+                        maxIdx = idx;
+                        splitpoint = val;
+                    }
+                }
+                // put value with maximum distance on the right
+                // this way there is exactly one value on the right
+                Index tmpIdx = indices_[startIdx + length - 1];
+                indices_[startIdx + length - 1] = indices_[maxIdx];
+                indices_[maxIdx] = tmpIdx;
+                leftIdx = startIdx + length - 1;
+                rightIdx = startIdx + length - 2;
             }
 
-            // no side should be empty by now
-            assert(leftIndices.size() != 0);
-            assert(rightIndices.size() != 0);
+            Index leftNode = -1;
+            Index rightNode = -1;
 
-            Node *leftNode = nullptr;
-            Node *rightNode = nullptr;
+            Index leftStart = startIdx;
+            Index rightStart = leftIdx;
+            Index leftLength = leftIdx - startIdx;
+            Index rightLength = length - leftLength;
 
-            // find left boundaries
-            Vector leftMins, leftMaxes;
-            findDataMinMax(data, leftIndices, leftMins, leftMaxes);
-            // start recursion
-            leftNode = buildR(data, leftIndices, leftMins, leftMaxes);
+            if(compact_)
+            {
+                // recompute mins and maxes to make the tree more compact
+                Vector minsN, maxesN;
+                findDataMinMax(leftStart, leftLength, minsN, maxesN);
+                leftNode = buildR(leftStart, leftLength, minsN, maxesN);
 
-            // find right boundaries
-            Vector rightMins, rightMaxes;
-            findDataMinMax(data, rightIndices, rightMins, rightMaxes);
-            // start recursion
-            rightNode = buildR(data, rightIndices, rightMins, rightMaxes);
+                findDataMinMax(rightStart, rightLength, minsN, maxesN);
+                rightNode = buildR(rightStart, rightLength, minsN, maxesN);
+            }
+            else
+            {
+                // just re-use mins and maxes, but set splitaxies to value of
+                // splitpoint
+                Vector mids(maxes.size());
+                for(Index i = 0; i < maxes.size(); ++i)
+                    mids(i) = maxes(i);
+                mids(splitaxis) = splitpoint;
 
-            assert(leftNode != nullptr && rightNode != nullptr);
+                leftNode = buildR(leftStart, leftLength, mins, mids);
 
-            return new Node(splitaxis, midpoint, leftNode, rightNode);
+                for(Index i = 0; i < mins.size(); ++i)
+                    mids(i) = mins(i);
+                mids(splitaxis) = splitpoint;
+                rightNode = buildR(leftStart, leftLength, mids, maxes);
+            }
+
+            nodes_.push_back(Node(splitaxis, splitpoint, leftNode, rightNode));
+            return nodes_.size() - 1;
         }
 
-        Node *buildR(const Index startIdx,
+        Index buildR(const Index startIdx,
             const Index length,
             const Vector &mins,
             const Vector &maxes) const
         {
             // check for base case
-            if(currIndices.size() <= bucketSize_)
-                return new Node(startIdx, length);
+            if(length <= bucketSize_)
+            {
+                nodes_.push_back(Node(startIdx, length));
+                return nodes_.size() - 1;
+            }
             else
                 return buildInnerNode(startIdx, length, mins, maxes);
         }
@@ -514,8 +557,9 @@ namespace kdt
 
         /** Constructs an empty KDTree. */
         KDTree()
-            : dataCopy_(), data_(nullptr), bucketSize_(16),
-            sorted_(true), threads_(1), maxDist_(0), distance_(), root_(nullptr)
+            : dataCopy_(), data_(nullptr), indices_(), nodes_(), root_(nullptr),
+            bucketSize_(16), sorted_(true), threads_(1), maxDist_(0),
+            distance_()
         {
 
         }
@@ -525,15 +569,14 @@ namespace kdt
           * @param data NxM matrix, M points of dimension N
           * @param copy if true copies the data, otherwise assumes static data */
         KDTree(const Matrix &data, const bool copy=false)
-            : dataCopy_(), data_(nullptr), bucketSize_(16),
-            sorted_(true), threads_(1), distance_(), root_(nullptr)
+            : KDTree()
         {
             setData(data, copy);
         }
 
         ~KDTree()
         {
-            clear();
+
         }
 
         /** Set the maximum amount of data points per leaf in the tree (aka
@@ -603,12 +646,11 @@ namespace kdt
             if(data_->size() == 0)
                 throw std::runtime_error("cannot build KDTree; data is empty");
 
-            if(root_ != nullptr)
-                clearRoot();
+            clear();
 
             indices_.resize(data_->cols());
             for(Index i = 0; i < indices_.size(); ++i)
-                indices_(i) = i;
+                indices_[i] = i;
 
             Vector mins, maxes;
             Index startIdx = 0;
@@ -652,14 +694,16 @@ namespace kdt
 
         void clear()
         {
-            if(root_ != nullptr)
-                clearRoot();
-            data_ = nullptr;
+            nodes_.clear();
+            root_ = nullptr;
         }
 
-        const Node *tree() const
+        const Node &tree() const
         {
-            return root_;
+            if(root_ == nullptr)
+                throw std::runtime_error("KDTree not built yet");
+
+            return *root_;
         }
 
         Index size() const
@@ -676,9 +720,6 @@ namespace kdt
         {
             return depthR(root_);
         }
-
-
-
     };
 
     typedef KDTree<float> KDTreef;
