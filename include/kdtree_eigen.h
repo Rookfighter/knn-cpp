@@ -2,6 +2,12 @@
  *
  *     Author: Fabian Meyer
  * Created On: 08 Nov 2018
+ *    License: MIT
+ *
+ * Implementation is based on cKDtree of the scipy project and the splitting
+ * midpoint rule described in "Analysis of Approximate Nearest Neighbor
+ * Searching with Clustered Point Sets" by Songrit Maneewongvatana and David M.
+ * Mount.
  */
 
 #ifndef KDT_KDTREE_EIGEN_H_
