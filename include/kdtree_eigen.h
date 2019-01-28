@@ -20,54 +20,120 @@
 
 namespace kdt
 {
+    /** Functor for manhatten distance. */
+    template <typename Scalar>
+    struct ManhattenDistance
+    {
+        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
+        typedef typename Vector::Index Index;
+
+        Scalar unrooted(const Vector &vecA, const Vector &vecB) const
+        {
+            assert(vecA.size() == vecB.size());
+
+            Scalar result = 0.0;
+            for(Index i = 0; i < vecA.size(); ++i)
+            {
+                Scalar diff = vecA(i) - vecB(i);
+                result += power(diff);
+            }
+            return result;
+        }
+
+        Scalar rooted(const Vector &vecA, const Vector &vecB) const
+        {
+            return unrooted(vecA, vecB);
+        }
+
+        Scalar root(const Scalar val) const
+        {
+            return val;
+        }
+
+        Scalar power(const Scalar val) const
+        {
+            return std::abs(val);
+        }
+    };
+
+    /** Functor for euclidean distance. */
+    template <typename Scalar>
+    struct EuclideanDistance
+    {
+        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
+        typedef typename Vector::Index Index;
+
+        Scalar unrooted(const Vector &vecA, const Vector &vecB) const
+        {
+            assert(vecA.size() == vecB.size());
+
+            Scalar result = 0.0;
+            for(Index i = 0; i < vecA.size(); ++i)
+            {
+                Scalar diff = vecA(i) - vecB(i);
+                result += power(diff);
+            }
+            return result;
+        }
+
+        Scalar rooted(const Vector &vecA, const Vector &vecB) const
+        {
+            return root(unrooted(vecA, vecB));
+        }
+
+        Scalar root(const Scalar val) const
+        {
+            return std::sqrt(val);
+        }
+
+        Scalar power(const Scalar val) const
+        {
+            return val * val;
+        }
+    };
+
     /** Functor for minkowski distance. */
     template <typename Scalar, int P>
     struct MinkowskiDistance
     {
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
+        typedef typename Vector::Index Index;
 
-        Scalar operator()(const Vector &vecA, const Vector &vecB) const
+        Scalar unrooted(const Vector &vecA, const Vector &vecB) const
         {
-            return (vecA - vecB).template lpNorm<P>();
+            assert(vecA.size() == vecB.size());
+
+            Scalar result = 0.0;
+            for(Index i = 0; i < vecA.size(); ++i)
+            {
+                Scalar diff = vecA(i) - vecB(i);
+                result += power(diff);
+            }
+            return result;
         }
-    };
 
-    template <typename Scalar>
-    struct ManhattenDistance
-    {
-        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
-
-        Scalar operator()(const Vector &vecA, const Vector &vecB) const
+        Scalar rooted(const Vector &vecA, const Vector &vecB) const
         {
-            return (vecA - vecB).abs().sum();
+            return root(unrooted(vecA, vecB));
         }
-    };
 
-    template <typename Scalar>
-    struct EuclideanDistance
-    {
-        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
-
-        Scalar operator()(const Vector &vecA, const Vector &vecB) const
+        Scalar root(const Scalar val) const
         {
-            return (vecA - vecB).norm();
+            return std::pow(val, 1.0 / static_cast<Scalar>(P));
         }
-    };
 
-    template <typename Scalar>
-    struct EuclideanDistanceSq
-    {
-        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
-
-        Scalar operator()(const Vector &vecA, const Vector &vecB) const
+        Scalar power(const Scalar val) const
         {
-            return (vecA - vecB).squaredNorm();
+            Scalar result = std::abs(val);
+            for(int i = 1; i < P; ++i)
+                result *= result;
+            return result;
         }
     };
 
     /** Class for performing k nearest neighbour searches. */
     template<typename Scalar,
-        typename Distance=EuclideanDistanceSq<Scalar>>
+        typename Distance=EuclideanDistance<Scalar>>
     class KDTree
     {
     public:
@@ -219,6 +285,7 @@ namespace kdt
         bool balanced_;
         int threads_;
         Scalar maxDist_;
+        Scalar maxDistP_;
 
         Distance distance_;
 
@@ -478,10 +545,10 @@ namespace kdt
 
                 // retrieve index of the current data point
                 Index dataIdx = indices_[idx];
-                Scalar dist = distance_(queryPoint, data.col(dataIdx));
+                Scalar dist = distance_.unrooted(queryPoint, data.col(dataIdx));
 
                 // if distance is greater than maximum distance then skip
-                if(maxDist_ > 0 && dist >= maxDist_)
+                if(maxDist_ > 0 && dist >= maxDistP_)
                     continue;
 
                 // check if all places in the result vector are already in use
@@ -517,12 +584,12 @@ namespace kdt
                 queryR(nodes_[node.left], queryPoint, dataHeap);
 
             // get distance to midpoint
-            Scalar splitdist = distance_(Vector1(splitval),
+            Scalar splitdist = distance_.unrooted(Vector1(splitval),
                 Vector1(node.splitpoint));
 
             // if distance is greater than maximum distance then return
             // the points on the other side cannot be closer then
-            if(maxDist_ > 0 && splitdist >= maxDist_)
+            if(maxDist_ > 0 && splitdist >= maxDistP_)
                 return;
 
             Scalar currMaxDist = dataHeap.front().distance;
@@ -565,7 +632,7 @@ namespace kdt
         KDTree()
             : dataCopy_(), data_(nullptr), indices_(), nodes_(),
             bucketSize_(16), sorted_(true), compact_(true), balanced_(false),
-            threads_(0), maxDist_(0), distance_()
+            threads_(0), maxDist_(0), maxDistP_(0), distance_()
         {
 
         }
@@ -635,6 +702,7 @@ namespace kdt
         void setMaxDistance(const Scalar maxDist)
         {
             maxDist_ = maxDist;
+            maxDistP_ = distance_.power(maxDist);
         }
 
         /** Set the data points used for this tree.
@@ -716,7 +784,7 @@ namespace kdt
                 for(size_t j = 0; j < dataHeap.data().size(); ++j)
                 {
                     indices(j, i) = dataHeap.data()[j].idx;
-                    distances(j, i) = dataHeap.data()[j].distance;
+                    distances(j, i) = distance_.root(dataHeap.data()[j].distance);
                 }
             }
         }
