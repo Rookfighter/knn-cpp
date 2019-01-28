@@ -15,7 +15,7 @@
 
 #include <Eigen/Geometry>
 #include <vector>
-#include <queue>
+#include <deque>
 #include <algorithm>
 
 namespace kdt
@@ -271,6 +271,26 @@ namespace kdt
             const std::vector<Element> &data() const
             {
                 return data_;
+            }
+        };
+
+        struct QueryRequest
+        {
+            Index node;
+            unsigned int visits;
+            bool visitedRight;
+
+            QueryRequest(const Index node)
+                :node(node), visits(0), visitedRight(false)
+            {
+
+            }
+
+            QueryRequest(const Index node, const unsigned int visits,
+                const bool visitedRight)
+                :node(node), visits(visits), visitedRight(visitedRight)
+            {
+
             }
         };
 
@@ -570,48 +590,54 @@ namespace kdt
 
         void queryInnerNode(const Node &node,
             const Vector &queryPoint,
+            const QueryRequest &req,
+            std::deque<QueryRequest> &requests,
             QueryHeap &dataHeap) const
         {
             assert(node.isInner());
 
             Scalar splitval = queryPoint(node.splitaxis);
 
-            // check if right or left child should be visited
-            bool visitRight = splitval >= node.splitpoint;
-            if(visitRight)
-                queryR(nodes_[node.right], queryPoint, dataHeap);
-            else
-                queryR(nodes_[node.left], queryPoint, dataHeap);
-
-            // get distance to midpoint
-            Scalar splitdist = distance_.unrooted(Vector1(splitval),
-                Vector1(node.splitpoint));
-
-            // if distance is greater than maximum distance then return
-            // the points on the other side cannot be closer then
-            if(maxDist_ > 0 && splitdist >= maxDistP_)
-                return;
-
-            Scalar currMaxDist = dataHeap.front().distance;
-            // if result is not full yet or maximum distance is greater than
-            // distance to splitpoint, then visit other child too
-            if(!dataHeap.full() || splitdist < currMaxDist)
+            if(req.visits == 0)
             {
+                bool visitRight = splitval >= node.splitpoint;
+                requests.push_back({req.node, 1, visitRight});
+                // check if right or left child should be visited
                 if(visitRight)
-                    queryR(nodes_[node.left], queryPoint, dataHeap);
+                    requests.push_back({node.right});
                 else
-                    queryR(nodes_[node.right], queryPoint, dataHeap);
+                    requests.push_back({node.left});
             }
-        }
-
-        void queryR(const Node &node,
-            const Vector &queryPoint,
-            QueryHeap &dataHeap) const
-        {
-            if(node.isLeaf())
-                queryLeafNode(node, queryPoint, dataHeap);
             else
-                queryInnerNode(node, queryPoint, dataHeap);
+            {
+                // get distance to midpoint
+                Scalar splitdist = distance_.unrooted(Vector1(splitval),
+                    Vector1(node.splitpoint));
+
+                // if distance is greater than maximum distance then return
+                // the points on the other side cannot be closer then
+                if(maxDist_ > 0 && splitdist >= maxDistP_)
+                {
+                    requests.clear();
+                    return;
+                }
+
+                Scalar currMaxDist = dataHeap.front().distance;
+                // if result is not full yet or maximum distance is greater than
+                // distance to splitpoint, then visit other child too
+                if(!dataHeap.full() || splitdist < currMaxDist)
+                {
+                    if(req.visitedRight)
+                        requests.push_back({node.left});
+                    else
+                        requests.push_back({node.right});
+                }
+                else
+                {
+                    requests.clear();
+                    return;
+                }
+            }
         }
 
         Index depthR(const Node &node) const
@@ -776,7 +802,20 @@ namespace kdt
             {
                 // create heap to find nearest neighbours
                 QueryHeap dataHeap(knn);
-                queryR(nodes_.front(), queryPoints.col(i), dataHeap);
+                std::deque<QueryRequest> requests;
+
+                requests.push_back(QueryRequest(0, 0, false));
+                while(!requests.empty())
+                {
+                    QueryRequest req = requests.back();
+                    requests.pop_back();
+                    const Node &node = nodes_[req.node];
+
+                    if(node.isLeaf())
+                        queryLeafNode(node, queryPoints.col(i), dataHeap);
+                    else
+                        queryInnerNode(node, queryPoints.col(i), req, requests, dataHeap);
+                }
 
                 if(sorted_)
                     dataHeap.sort();
