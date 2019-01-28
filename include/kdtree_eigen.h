@@ -397,13 +397,12 @@ namespace kdt
             if(balanced_)
             {
                 // use median for splitpoint
-                // TODO currIndices is supposed to be sorted along split axis
-                // auto compPred =
-                //     [&data, splitaxis](const Index lhs, const Index rhs)
-                //     { return data(splitaxis, lhs) < data(splitaxis, rhs); };
-                // std::sort(indices_.begin() + startIdx,
-                //     indices_.begin() + startIdx + length,
-                //     compPred);
+                auto compPred =
+                    [&data, splitaxis](const Index lhs, const Index rhs)
+                    { return data(splitaxis, lhs) < data(splitaxis, rhs); };
+                std::sort(indices_.begin() + startIdx,
+                    indices_.begin() + startIdx + length,
+                    compPred);
 
                 Index idx = indices_[startIdx + length / 2];
                 splitpoint = data(splitaxis, idx);
@@ -614,7 +613,7 @@ namespace kdt
                 Scalar splitdist = distance_.unrooted(Vector1(splitval),
                     Vector1(node.splitpoint));
 
-                // if distance is greater than maximum distance then return
+                // if distance is greater than maximum distance then return;
                 // the points on the other side cannot be closer then
                 if(maxDist_ > 0 && splitdist >= maxDistP_)
                 {
@@ -631,11 +630,6 @@ namespace kdt
                         requests.push_back({node.left});
                     else
                         requests.push_back({node.right});
-                }
-                else
-                {
-                    requests.clear();
-                    return;
                 }
             }
         }
@@ -699,7 +693,6 @@ namespace kdt
           * @param balanced set true to build a balanced tree */
         void setBalanced(const bool balanced)
         {
-            throw std::runtime_error("KDTree::setBalanced not yet implemented");
             balanced_ = balanced;
         }
 

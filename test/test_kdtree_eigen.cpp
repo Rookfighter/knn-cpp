@@ -28,21 +28,6 @@ TEST_CASE("KDTree")
         REQUIRE(kdtree.depth() == 3);
     }
 
-    // SECTION("build balanced")
-    // {
-    //     KDTree::Matrix data(3, 4);
-    //     data << 1, 3, 0, 1,
-    //         0, 1, 2, 0,
-    //         3, 2, 0, 1;
-    //     kdtree.setBucketSize(2);
-    //     kdtree.setData(data);
-    //     kdtree.setBalanced(true);
-    //     kdtree.build();
-    //
-    //     REQUIRE(kdtree.size() == 4);
-    //     REQUIRE(kdtree.depth() == 2);
-    // }
-
     SECTION("build no data")
     {
         REQUIRE_THROWS(kdtree.build());
@@ -173,16 +158,64 @@ TEST_CASE("KDTree")
             72.9507409147, 95.5904283911, 58.393198234, 89.3475785906,
             57.1903505847;
 
-        kdtree.setBucketSize(16);
-        kdtree.setData(dataPts);
-        kdtree.build();
+        SECTION("default")
+        {
+            kdtree.setData(dataPts);
+            kdtree.build();
 
-        KDTree::MatrixI indicesAct;
-        KDTree::Matrix distsAct;
-        kdtree.query(queryPts, knn, indicesAct, distsAct);
+            KDTree::MatrixI indicesAct;
+            KDTree::Matrix distsAct;
+            kdtree.query(queryPts, knn, indicesAct, distsAct);
 
-        REQUIRE_MAT(indicesExp, indicesAct);
-        REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+            REQUIRE_MAT(indicesExp, indicesAct);
+            REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+        }
+
+        SECTION("low bucket size")
+        {
+            kdtree.setBucketSize(2);
+            kdtree.setData(dataPts);
+            kdtree.build();
+
+            KDTree::MatrixI indicesAct;
+            KDTree::Matrix distsAct;
+            kdtree.query(queryPts, knn, indicesAct, distsAct);
+
+            REQUIRE_MAT(indicesExp, indicesAct);
+            REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+        }
+
+        SECTION("balanced")
+        {
+            kdtree.setBucketSize(2);
+            kdtree.setBalanced(true);
+            kdtree.setData(dataPts);
+            kdtree.build();
+
+            KDTree::MatrixI indicesAct;
+            KDTree::Matrix distsAct;
+            kdtree.query(queryPts, knn, indicesAct, distsAct);
+
+            REQUIRE_MAT(indicesExp, indicesAct);
+            REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+        }
+
+        SECTION("non-compact")
+        {
+            kdtree.setBucketSize(2);
+            kdtree.setCompact(false);
+            kdtree.setData(dataPts);
+            kdtree.build();
+
+            KDTree::MatrixI indicesAct;
+            KDTree::Matrix distsAct;
+            kdtree.query(queryPts, knn, indicesAct, distsAct);
+
+            REQUIRE_MAT(indicesExp, indicesAct);
+            REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+        }
+
+
     }
 
     SECTION("query maximum distance")
