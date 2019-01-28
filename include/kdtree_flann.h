@@ -151,9 +151,6 @@ namespace kdt
             else
                 index_->knnSearch(queryPts, indicesF, distancesF, knn, searchParams_);
 
-            // calculate infinity
-            Scalar inf = 1.0 / 0.0;
-
             // make result matrices compatible to API
             #pragma omp parallel for num_threads(searchParams_.cores)
             for(Index i = 0; i < indices.cols(); ++i)
@@ -161,14 +158,14 @@ namespace kdt
                 bool found = false;
                 for(Index j = 0; j < indices.rows(); ++j)
                 {
+                    if(indices(j, i) == -1)
+                        found = true;
+
                     if(found)
                     {
                         indices(j, i) = -1;
-                        distances(j, i) = inf;
+                        distances(j, i) = -1;
                     }
-
-                    if(indices(j, i) == -1)
-                        found = true;
                 }
             }
         }

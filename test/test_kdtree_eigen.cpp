@@ -138,6 +138,6 @@ TEST_CASE("KDTree")
         REQUIRE(distances.cols() == 1);
         REQUIRE(distances.rows() == 2);
         REQUIRE(distances(0, 0) == Approx(4.0));
-        REQUIRE(distances(1, 0) == 1.0 / 0.0);
+        REQUIRE(distances(1, 0) == -1.0);
     }
 }

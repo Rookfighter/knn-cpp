@@ -700,7 +700,7 @@ namespace kdt
             if(queryPoints.rows() != dimension())
                 throw std::runtime_error("cannot query KDTree; data and query points do not have same dimension");
 
-            distances.setConstant(knn, queryPoints.cols(), 1.0 / 0.0);
+            distances.setConstant(knn, queryPoints.cols(), -1);
             indices.setConstant(knn, queryPoints.cols(), -1);
 
             #pragma omp parallel for num_threads(threads_)
