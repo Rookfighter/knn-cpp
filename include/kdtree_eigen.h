@@ -797,7 +797,7 @@ namespace kdt
                 QueryHeap dataHeap(knn);
                 std::deque<QueryRequest> requests;
 
-                requests.push_back(QueryRequest(0, 0, false));
+                requests.push_back({0});
                 while(!requests.empty())
                 {
                     QueryRequest req = requests.back();
