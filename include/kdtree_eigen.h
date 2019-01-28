@@ -715,8 +715,8 @@ namespace kdt
 
                 for(size_t j = 0; j < dataHeap.data().size(); ++j)
                 {
-                    indices(j, i) = dataHeap.data()[i].idx;
-                    distances(j, i) = dataHeap.data()[i].distance;
+                    indices(j, i) = dataHeap.data()[j].idx;
+                    distances(j, i) = dataHeap.data()[j].distance;
                 }
             }
         }
