@@ -18,7 +18,8 @@ that your build system can find them.
 There are different header files for different use cases:
 
 ```kdtree_eigen.h``` implements a pure ```Eigen3``` KDTree for KNN-search based
-on cKDTree by the scipy project and the paper of Maneewongvatana and Mount [1].
+on [cKDTree](https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.cKDTree.html)
+by the scipy project and the paper of Maneewongvatana and Mount [1].
 This only requires that ```Eigen3``` can be found by your build system.
 
 ```kdtree_flann.h``` is a wrapper for the ```FLANN``` library such that it
@@ -33,35 +34,40 @@ KDTree and query it.
 
 int main()
 {
-    // create Eigen::MatrixXd dataPoints
+    // create kdt::KDTreed::Matrix dataPoints
     // each column is a single data point
     // ...
 
-    // Create a KDTreed object with double precision,
-    // you could also use KDTreef or KDTree<MyType>
-    // set the data points with the constructor
-    // optionally you can also use the setData() method
-    // setting data is fast
-    kdt::KDTreed kdtree(datapoints);
+    // Create a KDTreed object with double precision.
+    // You could also use KDTreef or KDTree<MyType>.
+    // Default distance is euclidean, but you can also
+    // use Manhatten or general Minkowski, e.g.
+    // KDTree<double, MinkowskiDistance<double, 4>>
 
-    // build kdtree, this consumes time
+    // Set the data points with the constructor.
+    // Optionally you can also use the setData() method.
+    // Setting data is fast!
+    kdt::KDTreed kdtree(dataPoints);
+
+    // Build the kdtree, this consumes time!
     kdtree.build();
 
-    // create Eigen::MatrixXd queryPoints
-    // each column is a single query point
-    // each query point must have the same dimension as in dataPoints
+    // Create kdt::KDTreed::Matrix queryPoints.
+    // Each column is a single query point.
+    // Each query point must have the same dimension
+    // as in dataPoints.
     // ...
 
-    // initialize result matrices
-    Eigen::MatrixXd dists;
-    Eigen::MatrixXi idx;
+    // Initialize result matrices.
+    kdt::KDTreed::Matrix dists; // basically Eigen::MatrixXd
+    kdt::KDTreed::MatrixI idx; // basically Eigen::Matrix<Eigen::Index>
     size_t knn = 10;
 
-    // query kdtree
+    // Query the kdtree.
     // idx and dists have the shape knn x queryPoints.cols()
-    // each column correspond to one query point
-    // if less than knn neighbours were found for a query point,
-    // the remaining idx fields will be set to -1
+    // Each column corresponds to one query point.
+    // If less than knn neighbours were found for a query point,
+    // the remaining idx and dists fields will be set to -1.
     kdtree.query(queryPoints, knn, idx, dists);
 }
 ```
