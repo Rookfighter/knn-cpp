@@ -616,10 +616,7 @@ namespace kdt
                 // if distance is greater than maximum distance then return;
                 // the points on the other side cannot be closer then
                 if(maxDist_ > 0 && splitdist >= maxDistP_)
-                {
-                    requests.clear();
                     return;
-                }
 
                 Scalar currMaxDist = dataHeap.front().distance;
                 // if result is not full yet or maximum distance is greater than

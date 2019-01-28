@@ -214,37 +214,120 @@ TEST_CASE("KDTree")
             REQUIRE_MAT(indicesExp, indicesAct);
             REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
         }
-
-
     }
 
     SECTION("query maximum distance")
     {
-        KDTree::Matrix data(3, 4);
-        data << 1, 3, 0, 5,
-            0, 1, 3, 4,
-            3, 2, 0, 3;
+        KDTree::Matrix dataPts(3, 50);
+        dataPts << 99.88, -19.59, -74.16, 86.5, 47.21, -72.68, -1.97, -54.12,
+            -9.22, 79.25, 94.14, 44.77, -34.63, 52.89, -91.08, -34.02, 1.02,
+            14.6, -41.38, 77.02, -33.63, 1.18, 33.28, 37.06, -68.19, -39.77,
+            73.96, -29.34, 98.76, 69.12, -69.26, -97.06, 91.02, -54.27, -19.41,
+            -63.78, 63.56, -56.25, 42.63, 58.83, 42.2, 48.07, -94.81, 74.61,
+            -36.59, 16.65, 16.57, 98.9, 34.74, -83.87,
+            -17.92, -85.04, -54.71, -53.14, -43.44, 57.76, -3.56, 12.08,
+            -14.66, 91.27, 30.09, 72.55, 78.14, -98.44, -75.53, -97.77, 99.08,
+            -13.76, -11.25, 0.39, 41.69, -95.19, 8.26, 93.32, -51.58, -54.19,
+            85.85, -51.24, -63.33, 49.69, 89.85, 63.12, -89.89, -23.73, -4.1,
+            11.13, 22.82, 45.44, 67.2, -93.46, -46.16, 47.57, -7.02, 54.61,
+            -16.6, -69.1, 96.98, 38.38, -50.43, 68.72,
+            -81.2, 7.82, 98.5, -99.23, 36.29, -56.29, 87.56, -6.11, -75.95,
+            35.35, -91.22, 19.16, -4.54, -26.23, -78.36, -84.74, -28.37, 80.16,
+            47.3, -53.94, 95.21, 47.9, -97.25, 80.98, 37.47, -68.59, -56.08,
+            77.62, 39.13, -92.14, -96.47, -90.8, 2.15, -68.76, 61.21, 35.87,
+            -86.98, 55.36, 48.69, -86.21, 19.11, -75.52, -40.56, 62.78, -56.22,
+            -90.37, 21.51, 63.48, 70.21, -47.03;
+        KDTree::Matrix queryPts(3, 5);
+        queryPts << 57.38, -75.03, -66.35, -51.12, -55.15,
+            87.31, -50.46, -71.72, 48.48, -13.82,
+            10.3, -96.74, 72.87, -19.65, 70.21;
 
-        kdtree.setData(data);
-        kdtree.setMaxDistance(2.1);
-        kdtree.build();
+        size_t knn = 10;
+        KDTree::MatrixI indicesExp(knn, queryPts.cols());
+        indicesExp << 11, 14, 2, 12, 18,
+            9, 33, 24, 7, 34,
+            46, 25, 27, 5, 35,
+            38, 15, 18, 49, 27,
+            43, 44, -1, 35, 24,
+            26, 42, -1, 16, 2,
+            16, -1, -1, 42, 6,
+            23, -1, -1, -1, 37,
+            -1, -1, -1, -1, 20,
+            -1, -1, -1, -1, 17;
 
-        REQUIRE(kdtree.size() == 4);
+        KDTree::Matrix distsExp(knn, queryPts.cols());
+        distsExp << 21.3393837774, 34.9847366719, 31.7369358949, 37.147648647,
+        26.8530426581,
+            33.4885204212, 43.9129923827, 40.769660288, 38.9524273955,
+            38.1159546647,
+            43.412315073, 45.2725413468, 42.5644570035, 43.5136943961,
+            43.3152975287,
+            45.7795445587, 63.7499505882, 70.242057914, 47.242824852,
+            46.0577962999,
+            64.1896666139, 65.3146507301, -1, 68.1011637199, 51.6504288462,
+            68.434877073, 73.7188876747, -1, 73.1777151871, 53.2324741112,
+            69.3566968648, -1, -1, 73.6633843914, 56.8718076027,
+            73.7881081205, -1, -1, -1, 61.102210271,
+            -1, -1, -1, -1, 64.5714371839,
+            -1, -1, -1, -1, 70.4561466446;
 
-        KDTree::Matrix points(3, 1);
-        points << 0, 1, 0;
-        KDTree::MatrixI indices;
-        KDTree::Matrix distances;
+        kdtree.setMaxDistance(75.0);
 
-        kdtree.query(points, 2, indices, distances);
+        SECTION("default")
+        {
+            kdtree.setData(dataPts);
+            kdtree.build();
 
-        REQUIRE(indices.cols() == 1);
-        REQUIRE(indices.rows() == 2);
-        REQUIRE(indices(0, 0) == 2);
-        REQUIRE(indices(1, 0) == -1);
-        REQUIRE(distances.cols() == 1);
-        REQUIRE(distances.rows() == 2);
-        REQUIRE(distances(0, 0) == Approx(2.0));
-        REQUIRE(distances(1, 0) == -1.0);
+            KDTree::MatrixI indicesAct;
+            KDTree::Matrix distsAct;
+            kdtree.query(queryPts, knn, indicesAct, distsAct);
+
+            REQUIRE_MAT(indicesExp, indicesAct);
+            REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+        }
+
+        SECTION("low bucket size")
+        {
+            kdtree.setBucketSize(2);
+            kdtree.setData(dataPts);
+            kdtree.build();
+
+            KDTree::MatrixI indicesAct;
+            KDTree::Matrix distsAct;
+            kdtree.query(queryPts, knn, indicesAct, distsAct);
+
+            REQUIRE_MAT(indicesExp, indicesAct);
+            REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+        }
+
+        SECTION("balanced")
+        {
+            kdtree.setBucketSize(2);
+            kdtree.setBalanced(true);
+            kdtree.setData(dataPts);
+            kdtree.build();
+
+            KDTree::MatrixI indicesAct;
+            KDTree::Matrix distsAct;
+            kdtree.query(queryPts, knn, indicesAct, distsAct);
+
+            REQUIRE_MAT(indicesExp, indicesAct);
+            REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+        }
+
+        SECTION("non-compact")
+        {
+            kdtree.setBucketSize(2);
+            kdtree.setCompact(false);
+            kdtree.setData(dataPts);
+            kdtree.build();
+
+            KDTree::MatrixI indicesAct;
+            KDTree::Matrix distsAct;
+            kdtree.query(queryPts, knn, indicesAct, distsAct);
+
+            REQUIRE_MAT(indicesExp, indicesAct);
+            REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+        }
     }
 }
