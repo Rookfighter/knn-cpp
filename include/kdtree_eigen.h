@@ -131,6 +131,114 @@ namespace kdt
         }
     };
 
+    template<typename T,
+        typename Compare=std::less<T>,
+        typename Container=std::vector<T>>
+    class Heap
+    {
+    public:
+        typedef typename Container::reference reference;
+        typedef typename Container::const_reference const_reference;
+        typedef typename Container::iterator iterator;
+        typedef typename Container::const_iterator const_iterator;
+        typedef typename Container::size_type size_type;
+    private:
+        Container data_;
+        size_type maxSize_;
+        Compare comp_;
+    public:
+        Heap()
+        : data_(), maxSize_(0), comp_()
+        {
+
+        }
+
+        Heap(const size_type size)
+        : data_(), maxSize_(size), comp_()
+        {
+            data_.reserve(maxSize_);
+        }
+
+        void push(const T &val)
+        {
+            if(full())
+                throw std::runtime_error("heap is full");
+            data_.push_back(val);
+            std::push_heap(data_.begin(), data_.end(), comp_);
+        }
+
+        void pop()
+        {
+            std::pop_heap(data_.begin(), data_.end(), comp_);
+            data_.pop_back();
+        }
+
+        reference front()
+        {
+            return data_.front();
+        }
+
+        const_reference front() const
+        {
+            return data_.front();
+        }
+
+        bool full() const
+        {
+            return maxSize_ > 0 && data_.size() >= maxSize_;
+        }
+
+        bool empty() const
+        {
+            return data_.empty();
+        }
+
+        size_type size() const
+        {
+            return data_.size();
+        }
+
+        void clear()
+        {
+            data_.clear();
+        }
+
+        void sort()
+        {
+            std::sort_heap(data_.begin(), data_.end(), comp_);
+        }
+
+        reference operator[](const size_type idx)
+        {
+            return data_[idx];
+        }
+
+        const_reference operator[](const size_type idx) const
+        {
+            return data_[idx];
+        }
+
+        iterator begin()
+        {
+            return data_.begin();
+        }
+
+        const_iterator begin() const
+        {
+            return data_.begin();
+        }
+
+        iterator end()
+        {
+            return data_.end();
+        }
+
+        const_iterator end() const
+        {
+            return data_.end();
+        }
+    };
+
     /** Class for performing k nearest neighbour searches. */
     template<typename Scalar,
         typename Distance=EuclideanDistance<Scalar>>
@@ -207,72 +315,21 @@ namespace kdt
             }
         };
 
-        class QueryHeap
+        struct QueryHeapElement
         {
-        public:
-            struct Element
-            {
-                Index idx;
-                Scalar distance;
+            Index idx;
+            Scalar distance;
 
-                Element(const Index idx, const Scalar dist)
-                :idx(idx), distance(dist) { }
-            };
-        private:
-            std::vector<Element> data_;
-            size_t maxSize_;
+            QueryHeapElement(const Index idx, const Scalar dist)
+            :idx(idx), distance(dist) { }
 
-            static bool comp(const Element &lhs, const Element &rhs)
+            bool operator<(const QueryHeapElement &rhs) const
             {
-                return lhs.distance < rhs.distance;
-            }
-        public:
-
-            QueryHeap(const size_t size)
-            : data_(), maxSize_(size)
-            {
-                data_.reserve(maxSize_);
-            }
-
-            void push(const Element &val)
-            {
-                if(full())
-                    throw std::runtime_error("heap is full");
-                data_.push_back(val);
-                std::push_heap(data_.begin(), data_.end(), comp);
-            }
-
-            void pop()
-            {
-                std::pop_heap(data_.begin(), data_.end(), comp);
-                data_.pop_back();
-            }
-
-            const Element &front() const
-            {
-                return data_.front();
-            }
-
-            bool full() const
-            {
-                return data_.size() >= maxSize_;
-            }
-
-            bool empty() const
-            {
-                return data_.empty();
-            }
-
-            void sort()
-            {
-                std::sort_heap(data_.begin(), data_.end(), comp);
-            }
-
-            const std::vector<Element> &data() const
-            {
-                return data_;
+                return distance < rhs.distance;
             }
         };
+
+        typedef Heap<QueryHeapElement> QueryHeap;
 
         Matrix dataCopy_;
         const Matrix *data_;
@@ -536,22 +593,16 @@ namespace kdt
                 Index dataIdx = indices_[idx];
                 Scalar dist = distance_.unrooted(queryPoint, data.col(dataIdx));
 
-                // if distance is greater than maximum distance then skip
-                if(maxDist_ > 0 && dist >= maxDistP_)
-                    continue;
+                // check if point is in range if max distance was set
+                bool isInRange = maxDist_ <= 0 || dist < maxDistP_;
+                // check if this node was an improvement if heap is already full
+                bool isImprovement = !dataHeap.full() ||
+                    dist < dataHeap.front().distance;
 
-                // check if all places in the result vector are already in use
-                if(dataHeap.full())
+                if(isInRange && isImprovement)
                 {
-                    Scalar currMaxDist = dataHeap.front().distance;
-                    if(dist < currMaxDist)
-                    {
+                    if(dataHeap.full())
                         dataHeap.pop();
-                        dataHeap.push({dataIdx, dist});
-                    }
-                }
-                else
-                {
                     dataHeap.push({dataIdx, dist});
                 }
             }
@@ -572,19 +623,17 @@ namespace kdt
             else
                 queryR(nodes_[node.left], queryPoint, dataHeap);
 
-            // get distance to midpoint
+            // get distance to split point
             Scalar splitdist = distance_.unrooted(Vector1(splitval),
                 Vector1(node.splitpoint));
 
-            // if distance is greater than maximum distance then return
-            // the points on the other side cannot be closer then
-            if(maxDist_ > 0 && splitdist >= maxDistP_)
-                return;
+            // check if node is in range if max distance was set
+            bool isInRange = maxDist_ <= 0 || splitdist < maxDistP_;
+            // check if this node was an improvement if heap is already full
+            bool isImprovement = !dataHeap.full() ||
+                splitdist < dataHeap.front().distance;
 
-            Scalar currMaxDist = dataHeap.front().distance;
-            // if result is not full yet or maximum distance is greater than
-            // distance to splitpoint, then visit other child too
-            if(!dataHeap.full() || splitdist < currMaxDist)
+            if(isInRange && isImprovement)
             {
                 if(visitRight)
                     queryR(nodes_[node.left], queryPoint, dataHeap);
@@ -770,10 +819,10 @@ namespace kdt
                 if(sorted_)
                     dataHeap.sort();
 
-                for(size_t j = 0; j < dataHeap.data().size(); ++j)
+                for(size_t j = 0; j < dataHeap.size(); ++j)
                 {
-                    indices(j, i) = dataHeap.data()[j].idx;
-                    distances(j, i) = distance_.root(dataHeap.data()[j].distance);
+                    indices(j, i) = dataHeap[j].idx;
+                    distances(j, i) = distance_.root(dataHeap[j].distance);
                 }
             }
         }
