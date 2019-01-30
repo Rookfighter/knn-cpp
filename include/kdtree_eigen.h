@@ -63,22 +63,20 @@ namespace kdt
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
         typedef typename Vector::Index Index;
 
-        Scalar unrooted(const Vector &vecA, const Vector &vecB) const
+        Scalar unrooted(const Scalar *vecA, const Scalar *vecB, const Index len) const
         {
-            assert(vecA.size() == vecB.size());
-
             Scalar result = 0.0;
-            for(Index i = 0; i < vecA.size(); ++i)
+            for(Index i = 0; i < len; ++i)
             {
-                Scalar diff = vecA(i) - vecB(i);
+                Scalar diff = vecA[i] - vecB[i];
                 result += power(diff);
             }
             return result;
         }
 
-        Scalar rooted(const Vector &vecA, const Vector &vecB) const
+        Scalar rooted(const Scalar *vecA, const Scalar *vecB, const Index len) const
         {
-            return root(unrooted(vecA, vecB));
+            return root(unrooted(vecA, vecB, len));
         }
 
         Scalar root(const Scalar val) const
@@ -576,12 +574,14 @@ namespace kdt
         }
 
         void queryLeafNode(const Node &node,
-            const Vector &queryPoint,
+            const Scalar *queryPoint,
+            const Index len,
             QueryHeap &dataHeap) const
         {
             assert(node.isLeaf());
 
             const Matrix &data = *data_;
+            const Scalar *dataRaw = data.data();
 
             // go through all points in this leaf node and do brute force search
             for(Index i = 0; i < node.length; ++i)
@@ -591,7 +591,8 @@ namespace kdt
 
                 // retrieve index of the current data point
                 Index dataIdx = indices_[idx];
-                Scalar dist = distance_.unrooted(queryPoint, data.col(dataIdx));
+                const Scalar *dataPoint = &dataRaw[dataIdx * len];
+                Scalar dist = distance_.unrooted(queryPoint, dataPoint, len);
 
                 // check if point is in range if max distance was set
                 bool isInRange = maxDist_ <= 0 || dist < maxDistP_;
@@ -609,19 +610,20 @@ namespace kdt
         }
 
         void queryInnerNode(const Node &node,
-            const Vector &queryPoint,
+            const Scalar *queryPoint,
+            const Index len,
             QueryHeap &dataHeap) const
         {
             assert(node.isInner());
 
-            Scalar splitval = queryPoint(node.splitaxis);
+            Scalar splitval = queryPoint[node.splitaxis];
 
             // check if right or left child should be visited
             bool visitRight = splitval >= node.splitpoint;
             if(visitRight)
-                queryR(nodes_[node.right], queryPoint, dataHeap);
+                queryR(nodes_[node.right], queryPoint, len, dataHeap);
             else
-                queryR(nodes_[node.left], queryPoint, dataHeap);
+                queryR(nodes_[node.left], queryPoint, len, dataHeap);
 
             // get distance to split point
             Scalar splitdist = distance_.power(splitval - node.splitpoint);
@@ -635,20 +637,21 @@ namespace kdt
             if(isInRange && isImprovement)
             {
                 if(visitRight)
-                    queryR(nodes_[node.left], queryPoint, dataHeap);
+                    queryR(nodes_[node.left], queryPoint, len, dataHeap);
                 else
-                    queryR(nodes_[node.right], queryPoint, dataHeap);
+                    queryR(nodes_[node.right], queryPoint, len, dataHeap);
             }
         }
 
         void queryR(const Node &node,
-            const Vector &queryPoint,
+            const Scalar *queryPoint,
+            const Index len,
             QueryHeap &dataHeap) const
         {
             if(node.isLeaf())
-                queryLeafNode(node, queryPoint, dataHeap);
+                queryLeafNode(node, queryPoint, len, dataHeap);
             else
-                queryInnerNode(node, queryPoint, dataHeap);
+                queryInnerNode(node, queryPoint, len, dataHeap);
         }
 
         Index depthR(const Node &node) const
@@ -805,10 +808,12 @@ namespace kdt
                 throw std::runtime_error("cannot query KDTree; data and query points do not have same dimension");
 
             Index queryNum = queryPoints.cols();
+            Index dim = queryPoints.rows();
+
             distances.setConstant(knn, queryNum, -1);
             indices.setConstant(knn, queryNum, -1);
 
-            // Scalar queryPointsRaw = queryPoints.data();
+            const Scalar *queryPointsRaw = queryPoints.data();
             Index *indicesRaw = indices.data();
             Scalar *distsRaw = distances.data();
 
@@ -818,7 +823,8 @@ namespace kdt
                 // create heap to find nearest neighbours
                 QueryHeap dataHeap(knn);
 
-                queryR(nodes_[0], queryPoints.col(i), dataHeap);
+                const Scalar *queryPoint = &queryPointsRaw[i * dim];
+                queryR(nodes_[0], queryPoint, dim, dataHeap);
 
                 if(sorted_)
                     dataHeap.sort();
