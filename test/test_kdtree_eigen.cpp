@@ -71,33 +71,37 @@ TEST_CASE("KDTree")
         REQUIRE(distances(0) == Approx(1.0));
     }
 
-    SECTION("query multiple")
+    SECTION("euclidean query multiple")
     {
+        kdt::KDTree<Scalar, kdt::EuclideanDistance<Scalar>> kdtree2;
+
         Matrix data(3, 9);
-        data << 1, 2, 3, 1, 2, 3, 1, 2, 3,
-                2, 1, 0, 3, 2, 1, 0, 3, 0,
-                2, 1, 3, 1, 2, 2, 3, 2, 1;
+        data << 1, 2, 3, 1, 2, 3, 1, 2, 1,
+                2, 1, 0, 3, 2, 1, 0, 3, 1,
+                3, 1, 3, 1, 3, 4, 4, 2, 1;
 
-        kdtree.setBucketSize(2);
-        kdtree.setData(data);
-        kdtree.build();
+        kdtree2.setBucketSize(2);
+        kdtree2.setData(data);
+        kdtree2.build();
 
-        REQUIRE(kdtree.size() == 9);
+        REQUIRE(kdtree2.size() == 9);
 
         Matrix points(3, 1);
         points << 0, 1, 0;
 
+        MatrixI indicesExp(3, 1);
+        indicesExp << 8, 1, 3;
+        Matrix distancesExp(3, 1);
+        distancesExp << std::sqrt(2), std::sqrt(5), std::sqrt(6);
+
         MatrixI indices;
         Matrix distances;
-        kdtree.query(points, 9, indices, distances);
+        kdtree2.query(points, 3, indices, distances);
 
-        REQUIRE(indices.size() == 9);
-        REQUIRE(distances.size() == 9);
-        for(Eigen::Index i = 0; i < indices.size(); ++i)
-        {
-            REQUIRE(indices(i) >= 0);
-            REQUIRE(distances(i) > 0);
-        }
+        REQUIRE(indices.size() == 3);
+        REQUIRE(distances.size() == 3);
+        REQUIRE_MAT(indicesExp, indices);
+        REQUIRE_MAT_APPROX(distancesExp, distances, 1e-3);
     }
 
     SECTION("manhatten query multiple")
@@ -122,6 +126,39 @@ TEST_CASE("KDTree")
         indicesExp << 1, 3, 0;
         Matrix distancesExp(3, 1);
         distancesExp << 3, 4, 5;
+
+        MatrixI indices;
+        Matrix distances;
+        kdtree2.query(points, 3, indices, distances);
+
+        REQUIRE(indices.size() == 3);
+        REQUIRE(distances.size() == 3);
+        REQUIRE_MAT(indicesExp, indices);
+        REQUIRE_MAT_APPROX(distancesExp, distances, 1e-3);
+    }
+
+    SECTION("minkowski query multiple")
+    {
+        kdt::KDTree<Scalar, kdt::MinkowskiDistance<Scalar, 2>> kdtree2;
+
+        Matrix data(3, 9);
+        data << 1, 2, 3, 1, 2, 3, 1, 2, 1,
+                2, 1, 0, 3, 2, 1, 0, 3, 1,
+                3, 1, 3, 1, 3, 4, 4, 2, 1;
+
+        kdtree2.setBucketSize(2);
+        kdtree2.setData(data);
+        kdtree2.build();
+
+        REQUIRE(kdtree2.size() == 9);
+
+        Matrix points(3, 1);
+        points << 0, 1, 0;
+
+        MatrixI indicesExp(3, 1);
+        indicesExp << 8, 1, 3;
+        Matrix distancesExp(3, 1);
+        distancesExp << std::sqrt(2), std::sqrt(5), std::sqrt(6);
 
         MatrixI indices;
         Matrix distances;
