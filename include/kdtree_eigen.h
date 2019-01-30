@@ -15,7 +15,6 @@
 
 #include <Eigen/Geometry>
 #include <vector>
-#include <deque>
 #include <algorithm>
 
 namespace kdt
@@ -27,22 +26,24 @@ namespace kdt
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
         typedef typename Vector::Index Index;
 
-        Scalar unrooted(const Vector &vecA, const Vector &vecB) const
+        Scalar unrooted(const Scalar *vecA,
+            const Scalar *vecB,
+            const Index len) const
         {
-            assert(vecA.size() == vecB.size());
-
             Scalar result = 0.0;
-            for(Index i = 0; i < vecA.size(); ++i)
+            for(Index i = 0; i < len; ++i)
             {
-                Scalar diff = vecA(i) - vecB(i);
+                Scalar diff = vecA[i] - vecB[i];
                 result += power(diff);
             }
             return result;
         }
 
-        Scalar rooted(const Vector &vecA, const Vector &vecB) const
+        Scalar rooted(const Scalar *vecA,
+            const Scalar *vecB,
+            const Index len) const
         {
-            return unrooted(vecA, vecB);
+            return unrooted(vecA, vecB, len);
         }
 
         Scalar root(const Scalar val) const
@@ -63,7 +64,9 @@ namespace kdt
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
         typedef typename Vector::Index Index;
 
-        Scalar unrooted(const Scalar *vecA, const Scalar *vecB, const Index len) const
+        Scalar unrooted(const Scalar *vecA,
+            const Scalar *vecB,
+            const Index len) const
         {
             Scalar result = 0.0;
             for(Index i = 0; i < len; ++i)
@@ -74,7 +77,9 @@ namespace kdt
             return result;
         }
 
-        Scalar rooted(const Scalar *vecA, const Scalar *vecB, const Index len) const
+        Scalar rooted(const Scalar *vecA,
+            const Scalar *vecB,
+            const Index len) const
         {
             return root(unrooted(vecA, vecB, len));
         }
@@ -97,22 +102,24 @@ namespace kdt
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
         typedef typename Vector::Index Index;
 
-        Scalar unrooted(const Vector &vecA, const Vector &vecB) const
+        Scalar unrooted(const Scalar *vecA,
+            const Scalar *vecB,
+            const Index len) const
         {
-            assert(vecA.size() == vecB.size());
-
             Scalar result = 0.0;
-            for(Index i = 0; i < vecA.size(); ++i)
+            for(Index i = 0; i < len; ++i)
             {
-                Scalar diff = vecA(i) - vecB(i);
+                Scalar diff = vecA[i] - vecB[i];
                 result += power(diff);
             }
             return result;
         }
 
-        Scalar rooted(const Vector &vecA, const Vector &vecB) const
+        Scalar rooted(const Scalar *vecA,
+            const Scalar *vecB,
+            const Index len) const
         {
-            return root(unrooted(vecA, vecB));
+            return root(unrooted(vecA, vecB, len));
         }
 
         Scalar root(const Scalar val) const

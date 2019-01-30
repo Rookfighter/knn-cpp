@@ -69,6 +69,8 @@ if(${BUILD_TESTS})
     if(${LIBS})
         target_link_libraries(run_tests ${LIBS})
     endif(${LIBS})
-
-    add_executable(test_performance test/test_performance.cpp)
 endif(${BUILD_TESTS})
+
+if(${BUILD_PERFORMANCE_TEST})
+    add_executable(test_performance test/test_performance.cpp)
+endif(${BUILD_PERFORMANCE_TEST})
