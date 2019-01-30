@@ -144,7 +144,6 @@ namespace kdt
     public:
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
-        typedef Eigen::Matrix<Scalar, 1, 1> Vector1;
         typedef typename Matrix::Index Index;
         typedef Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic> MatrixI;
         typedef Eigen::Matrix<Index, Eigen::Dynamic, 1> VectorI;
@@ -669,6 +668,7 @@ namespace kdt
 
         /** Constructs KDTree with the given data. This does not build the
           * the index of the tree.
+          *
           * @param data NxM matrix, M points of dimension N
           * @param copy if true copies the data, otherwise assumes static data */
         KDTree(const Matrix &data, const bool copy=false)
@@ -684,6 +684,7 @@ namespace kdt
 
         /** Set the maximum amount of data points per leaf in the tree (aka
           * bucket size).
+          *
           * @param bucketSize amount of points per leaf. */
         void setBucketSize(const Index bucketSize)
         {
@@ -692,6 +693,7 @@ namespace kdt
 
         /** Set if the points returned by the queries should be sorted
           * according to their distance to the query points.
+          *
           * @param sorted sort query results */
         void setSorted(const bool sorted)
         {
@@ -699,6 +701,7 @@ namespace kdt
         }
 
         /** Set if the tree should be built as balanced as possible.
+          *
           * This increases build time, but decreases search time.
           * @param balanced set true to build a balanced tree */
         void setBalanced(const bool balanced)
@@ -707,6 +710,7 @@ namespace kdt
         }
 
         /** Set if the tree should be built with compact leaf nodes.
+          *
           * This increases build time, but makes leaf nodes denser (more)
           * points. Thus less visits are necessary.
           * @param compact set true ti build a tree with compact leafs */
@@ -717,7 +721,8 @@ namespace kdt
 
         /** Set the amount of threads that should be used for building and
           * querying the tree.
-          * OMP has to be enabled for this to work.
+          *
+          * OpenMP has to be enabled for this to work.
           * @param threads amount of threads, 0 for optimal choice */
         void setThreads(const unsigned int threads)
         {
@@ -725,9 +730,10 @@ namespace kdt
         }
 
         /** Set the maximum distance for querying the tree.
+          *
           * The search will be pruned if the maximum distance is set to any
           * positive number.
-          * @param maxDist maximum distance, 0 for no limit */
+          * @param maxDist maximum distance, <= 0 for no limit */
         void setMaxDistance(const Scalar maxDist)
         {
             maxDist_ = maxDist;
@@ -735,6 +741,7 @@ namespace kdt
         }
 
         /** Set the data points used for this tree.
+          *
           * This does not build the tree.
           * @param data NxM matrix, M points of dimension N
           * @param copy if true data is copied, assumes static data otherwise */
@@ -753,6 +760,7 @@ namespace kdt
         }
 
         /** Builds the search index of the tree.
+          *
           * Data has to be set and must be non-empty. */
         void build()
         {
@@ -779,12 +787,20 @@ namespace kdt
 
         /** Queries the tree for the nearest neighbours of the given query
           * points.
-          * The tree has to be built before it can be queried. The queryPoints
-          * have to have the same dimension as the data points of the tree.
+          *
+          * The tree has to be built before it can be queried.
+          *
+          * The query points have to have the same dimension as the data points
+          * of the tree.
+          *
+          * The result matrices will be resized appropriatley.
+          * Indices and distances will be set to -1 if less than knn neighbours
+          * were found.
+          *
           * @param queryPoints NxM matrix, M points of dimension N
           * @param knn amount of neighbours to be found
           * @param indices KNNxM matrix, indices of neighbours in the data set
-          * @param distances KNNxM matrix, distance between querypoint and
+          * @param distances KNNxM matrix, distance between query points and
           *        neighbours */
         void query(const Matrix &queryPoints,
             const size_t knn,
@@ -831,21 +847,31 @@ namespace kdt
             }
         }
 
+        /** Clears the tree. */
         void clear()
         {
             nodes_.clear();
         }
 
+        /** Returns the amount of data points stored in the search index.
+          *
+          * @return number of data points */
         Index size() const
         {
             return data_ == nullptr ? 0 : data_->cols();
         }
 
+        /** Returns the dimension of the data points in the search index.
+          *
+          * @return dimension of data points */
         Index dimension() const
         {
             return data_ == nullptr ? 0 : data_->rows();
         }
 
+        /** Returns the maxximum depth of the tree.
+          *
+          * @return maximum depth of the tree */
         Index depth() const
         {
             return nodes_.size() == 0 ? 0 : depthR(nodes_.front());
