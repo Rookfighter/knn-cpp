@@ -327,6 +327,7 @@ namespace kdt
         bool sorted_;
         bool compact_;
         bool balanced_;
+        bool takeRoot_;
         int threads_;
         Scalar maxDist_;
         Scalar maxDistP_;
@@ -661,7 +662,8 @@ namespace kdt
         KDTree()
             : dataCopy_(), data_(nullptr), indices_(), nodes_(),
             bucketSize_(16), sorted_(true), compact_(true), balanced_(false),
-            threads_(0), maxDist_(0), maxDistP_(0), distance_()
+            takeRoot_(true), threads_(0), maxDist_(0), maxDistP_(0),
+            distance_()
         {
 
         }
@@ -707,6 +709,17 @@ namespace kdt
         void setBalanced(const bool balanced)
         {
             balanced_ = balanced;
+        }
+
+        /** Set if the distances after the query should be rooted or not.
+          *
+          * Taking the root of the distances increases query time, but the
+          * function will return true distances instead of their powered
+          * versions.
+          * @param takeRoot set true if root should be taken else false */
+        void setTakeRoot(const bool takeRoot)
+        {
+            takeRoot_ = takeRoot;
         }
 
         /** Set if the tree should be built with compact leaf nodes.
@@ -838,11 +851,14 @@ namespace kdt
                 if(sorted_)
                     dataHeap.sort();
 
-                for(size_t j = 0; j < knn; ++j)
+                if(takeRoot_)
                 {
-                    if(distPoint[j] < 0)
-                        break;
-                    distPoint[j] = distance_.root(distPoint[j]);
+                    for(size_t j = 0; j < knn; ++j)
+                    {
+                        if(distPoint[j] < 0)
+                            break;
+                        distPoint[j] = distance_.root(distPoint[j]);
+                    }
                 }
             }
         }

@@ -65,6 +65,7 @@ int main(int argc, char** argv)
     kdtree.setCompact(true);
     kdtree.setMaxDistance(0.5);
     kdtree.setThreads(0);
+    kdtree.setTakeRoot(false);
 
     std::cout << "Building kdtree" << std::endl;
     auto start = std::chrono::steady_clock::now();
