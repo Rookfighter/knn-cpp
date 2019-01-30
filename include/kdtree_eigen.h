@@ -624,8 +624,7 @@ namespace kdt
                 queryR(nodes_[node.left], queryPoint, dataHeap);
 
             // get distance to split point
-            Scalar splitdist = distance_.unrooted(Vector1(splitval),
-                Vector1(node.splitpoint));
+            Scalar splitdist = distance_.power(splitval - node.splitpoint);
 
             // check if node is in range if max distance was set
             bool isInRange = maxDist_ <= 0 || splitdist < maxDistP_;
@@ -809,6 +808,7 @@ namespace kdt
             distances.setConstant(knn, queryNum, -1);
             indices.setConstant(knn, queryNum, -1);
 
+            // Scalar queryPointsRaw = queryPoints.data();
             Index *indicesRaw = indices.data();
             Scalar *distsRaw = distances.data();
 
