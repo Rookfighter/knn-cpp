@@ -805,11 +805,15 @@ namespace kdt
             if(queryPoints.rows() != dimension())
                 throw std::runtime_error("cannot query KDTree; data and query points do not have same dimension");
 
-            distances.setConstant(knn, queryPoints.cols(), -1);
-            indices.setConstant(knn, queryPoints.cols(), -1);
+            Index queryNum = queryPoints.cols();
+            distances.setConstant(knn, queryNum, -1);
+            indices.setConstant(knn, queryNum, -1);
+
+            Index *indicesRaw = indices.data();
+            Scalar *distsRaw = distances.data();
 
             #pragma omp parallel for num_threads(threads_)
-            for(Index i = 0; i < queryPoints.cols(); ++i)
+            for(Index i = 0; i < queryNum; ++i)
             {
                 // create heap to find nearest neighbours
                 QueryHeap dataHeap(knn);
@@ -821,8 +825,9 @@ namespace kdt
 
                 for(size_t j = 0; j < dataHeap.size(); ++j)
                 {
-                    indices(j, i) = dataHeap[j].idx;
-                    distances(j, i) = distance_.root(dataHeap[j].distance);
+                    size_t idx = i * knn + j;
+                    indicesRaw[idx] = dataHeap[j].idx;
+                    distsRaw[idx] = distance_.root(dataHeap[j].distance);
                 }
             }
         }
