@@ -136,114 +136,6 @@ namespace kdt
         }
     };
 
-    template<typename T,
-        typename Compare=std::less<T>,
-        typename Container=std::vector<T>>
-    class Heap
-    {
-    public:
-        typedef typename Container::reference reference;
-        typedef typename Container::const_reference const_reference;
-        typedef typename Container::iterator iterator;
-        typedef typename Container::const_iterator const_iterator;
-        typedef typename Container::size_type size_type;
-    private:
-        Container data_;
-        size_type maxSize_;
-        Compare comp_;
-    public:
-        Heap()
-        : data_(), maxSize_(0), comp_()
-        {
-
-        }
-
-        Heap(const size_type size)
-        : data_(), maxSize_(size), comp_()
-        {
-            data_.reserve(maxSize_);
-        }
-
-        void push(const T &val)
-        {
-            if(full())
-                throw std::runtime_error("heap is full");
-            data_.push_back(val);
-            std::push_heap(data_.begin(), data_.end(), comp_);
-        }
-
-        void pop()
-        {
-            std::pop_heap(data_.begin(), data_.end(), comp_);
-            data_.pop_back();
-        }
-
-        reference front()
-        {
-            return data_.front();
-        }
-
-        const_reference front() const
-        {
-            return data_.front();
-        }
-
-        bool full() const
-        {
-            return maxSize_ > 0 && data_.size() >= maxSize_;
-        }
-
-        bool empty() const
-        {
-            return data_.empty();
-        }
-
-        size_type size() const
-        {
-            return data_.size();
-        }
-
-        void clear()
-        {
-            data_.clear();
-        }
-
-        void sort()
-        {
-            std::sort_heap(data_.begin(), data_.end(), comp_);
-        }
-
-        reference operator[](const size_type idx)
-        {
-            return data_[idx];
-        }
-
-        const_reference operator[](const size_type idx) const
-        {
-            return data_[idx];
-        }
-
-        iterator begin()
-        {
-            return data_.begin();
-        }
-
-        const_iterator begin() const
-        {
-            return data_.begin();
-        }
-
-        iterator end()
-        {
-            return data_.end();
-        }
-
-        const_iterator end() const
-        {
-            return data_.end();
-        }
-    };
-
     /** Class for performing k nearest neighbour searches. */
     template<typename Scalar,
         typename Distance=EuclideanDistance<Scalar>>
@@ -320,21 +212,112 @@ namespace kdt
             }
         };
 
-        struct QueryHeapElement
+        class QueryHeap
         {
-            Index idx;
-            Scalar distance;
-
-            QueryHeapElement(const Index idx, const Scalar dist)
-            :idx(idx), distance(dist) { }
-
-            bool operator<(const QueryHeapElement &rhs) const
+        private:
+            Index *indices_;
+            Scalar *distances_;
+            size_t maxSize_;
+            size_t size_;
+        public:
+            QueryHeap(Index *indices, Scalar *distances, const size_t maxSize)
+                : indices_(indices), distances_(distances), maxSize_(maxSize),
+                size_(0)
             {
-                return distance < rhs.distance;
+            }
+
+            void push(const Index idx, const Scalar dist)
+            {
+                if(full())
+                    throw std::runtime_error("heap is full");
+                // add new value at the end
+                indices_[size_] = idx;
+                distances_[size_] = dist;
+                ++size_;
+
+                // upheap
+                size_t k = size_ - 1;
+                while(k > 0 && distances_[(k - 1) / 2] < dist)
+                {
+                    size_t tmp = (k - 1) / 2;
+                    distances_[k] = distances_[tmp];
+                    indices_[k] = indices_[tmp];
+                    k = tmp;
+                }
+                distances_[k] = dist;
+                indices_[k] = idx;
+            }
+
+            void pop()
+            {
+                if(empty())
+                    throw std::runtime_error("heap is empty");
+                // replace first element with last
+                distances_[0] = distances_[size_-1];
+                indices_[0] = indices_[size_-1];
+                --size_;
+
+                // downheap
+                size_t k = 0;
+                Scalar dist = distances_[0];
+                Index idx = indices_[0];
+                while(2 * k + 1 < size_)
+                {
+                    size_t j = 2 * k + 1;
+                    if(j + 1 < size_ && distances_[j+1] > distances_[j])
+                        ++j;
+                    // j references now greates child
+                    if(dist >= distances_[j])
+                        break;
+                    distances_[k] = distances_[j];
+                    indices_[k] = indices_[j];
+                    k = j;
+                }
+                distances_[k] = dist;
+                indices_[k] = idx;
+            }
+
+            Scalar front() const
+            {
+                if(empty())
+                    throw std::runtime_error("heap is empty");
+
+                return distances_[0];
+            }
+
+            bool full() const
+            {
+                return size_ >= maxSize_;
+            }
+
+            bool empty() const
+            {
+                return size_ == 0;
+            }
+
+            size_t size() const
+            {
+                return size_;
+            }
+
+            void clear()
+            {
+                size_ = 0;
+            }
+
+            void sort()
+            {
+                size_t cnt = size_;
+                for(size_t i = 0; i < cnt; ++i)
+                {
+                    Index idx = indices_[0];
+                    Scalar dist = distances_[0];
+                    pop();
+                    indices_[cnt - i - 1] = idx;
+                    distances_[cnt - i - 1] = dist;
+                }
             }
         };
-
-        typedef Heap<QueryHeapElement> QueryHeap;
 
         Matrix dataCopy_;
         const Matrix *data_;
@@ -605,13 +588,13 @@ namespace kdt
                 bool isInRange = maxDist_ <= 0 || dist < maxDistP_;
                 // check if this node was an improvement if heap is already full
                 bool isImprovement = !dataHeap.full() ||
-                    dist < dataHeap.front().distance;
+                    dist < dataHeap.front();
 
                 if(isInRange && isImprovement)
                 {
                     if(dataHeap.full())
                         dataHeap.pop();
-                    dataHeap.push({dataIdx, dist});
+                    dataHeap.push(dataIdx, dist);
                 }
             }
         }
@@ -639,7 +622,7 @@ namespace kdt
             bool isInRange = maxDist_ <= 0 || splitdist < maxDistP_;
             // check if this node was an improvement if heap is already full
             bool isImprovement = !dataHeap.full() ||
-                splitdist < dataHeap.front().distance;
+                splitdist < dataHeap.front();
 
             if(isInRange && isImprovement)
             {
@@ -827,20 +810,23 @@ namespace kdt
             #pragma omp parallel for num_threads(threads_)
             for(Index i = 0; i < queryNum; ++i)
             {
-                // create heap to find nearest neighbours
-                QueryHeap dataHeap(knn);
-
                 const Scalar *queryPoint = &queryPointsRaw[i * dim];
+                Scalar *distPoint = &distsRaw[i * knn];
+                Index *idxPoint = &indicesRaw[i * knn];
+
+                // create heap to find nearest neighbours
+                QueryHeap dataHeap(idxPoint, distPoint, knn);
+
                 queryR(nodes_[0], queryPoint, dim, dataHeap);
 
                 if(sorted_)
                     dataHeap.sort();
 
-                for(size_t j = 0; j < dataHeap.size(); ++j)
+                for(size_t j = 0; j < knn; ++j)
                 {
-                    size_t idx = i * knn + j;
-                    indicesRaw[idx] = dataHeap[j].idx;
-                    distsRaw[idx] = distance_.root(dataHeap[j].distance);
+                    if(distPoint[j] < 0)
+                        break;
+                    distPoint[j] = distance_.root(distPoint[j]);
                 }
             }
         }
