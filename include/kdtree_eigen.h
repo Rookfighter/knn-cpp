@@ -19,7 +19,8 @@
 
 namespace kdt
 {
-    /** Functor for manhatten distance. */
+    /** Functor for manhatten distance. This the same as the L1 minkowski
+      * distance but more efficient.*/
     template <typename Scalar>
     struct ManhattenDistance
     {
@@ -57,7 +58,8 @@ namespace kdt
         }
     };
 
-    /** Functor for euclidean distance. */
+    /** Functor for euclidean distance. This the same as the L2 minkowski
+      * distance but more efficient. */
     template <typename Scalar>
     struct EuclideanDistance
     {
@@ -95,7 +97,8 @@ namespace kdt
         }
     };
 
-    /** Functor for minkowski distance. */
+    /** Functor for general minkowski distance. The infinite version is only
+      * available through the ChebyshevDistance functor. */
     template <typename Scalar, int P>
     struct MinkowskiDistance
     {
@@ -133,6 +136,45 @@ namespace kdt
             for(int i = 1; i < P; ++i)
                 result *= result;
             return result;
+        }
+    };
+
+    /** Chebyshev distance functor. This distance is the same as infinity
+      * minkowski distance. */
+    template<typename Scalar>
+    struct ChebyshevDistance
+    {
+        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
+        typedef typename Vector::Index Index;
+
+        Scalar unrooted(const Scalar *vecA,
+            const Scalar *vecB,
+            const Index len) const
+        {
+            Scalar result = 0.0;
+            for(Index i = 0; i < len; ++i)
+            {
+                Scalar diff = vecA[i] - vecB[i];
+                result = std::max(result, power(diff));
+            }
+            return result;
+        }
+
+        Scalar rooted(const Scalar *vecA,
+            const Scalar *vecB,
+            const Index len) const
+        {
+            return root(unrooted(vecA, vecB, len));
+        }
+
+        Scalar root(const Scalar val) const
+        {
+            return val;
+        }
+
+        Scalar power(const Scalar val) const
+        {
+            return std::abs(val);
         }
     };
 

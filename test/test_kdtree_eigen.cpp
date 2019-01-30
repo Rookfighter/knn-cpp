@@ -170,6 +170,39 @@ TEST_CASE("KDTree")
         REQUIRE_MAT_APPROX(distancesExp, distances, 1e-3);
     }
 
+    SECTION("chebyshev query multiple")
+    {
+        kdt::KDTree<Scalar, kdt::ChebyshevDistance<Scalar>> kdtree2;
+
+        Matrix data(3, 9);
+        data << 1, 2, 4, 4, 4, 1, 1, 5, 3,
+                2, 1, 0, 3, 2, 1, 0, 3, 4,
+                3, 1, 3, 1, 3, 0, 4, 2, 6;
+
+        kdtree2.setBucketSize(2);
+        kdtree2.setData(data);
+        kdtree2.build();
+
+        REQUIRE(kdtree2.size() == 9);
+
+        Matrix points(3, 1);
+        points << 0, 1, 0;
+
+        MatrixI indicesExp(3, 1);
+        indicesExp << 5, 1, 0;
+        Matrix distancesExp(3, 1);
+        distancesExp << 1, 2, 3;
+
+        MatrixI indices;
+        Matrix distances;
+        kdtree2.query(points, 3, indices, distances);
+
+        REQUIRE(indices.size() == 3);
+        REQUIRE(distances.size() == 3);
+        REQUIRE_MAT(indicesExp, indices);
+        REQUIRE_MAT_APPROX(distancesExp, distances, 1e-3);
+    }
+
     SECTION("query many")
     {
         Matrix dataPts(3, 50);
