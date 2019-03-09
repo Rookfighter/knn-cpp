@@ -5,6 +5,7 @@
  */
 
 #include <kdtree_eigen.h>
+#include <kdtree_flann.h>
 #include <string>
 #include <fstream>
 #include <sstream>
@@ -12,9 +13,12 @@
 #include <iostream>
 
 typedef double Scalar;
-typedef kdt::KDTree<Scalar> KDTree;
+typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
+typedef typename Matrix::Index Index;
+typedef Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic> MatrixI;
+typedef Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic> Matrixi;
 
-static void loadMatrix(const std::string &filename, KDTree::Matrix &mat)
+static void loadMatrix(const std::string &filename, Matrix &mat)
 {
     std::ifstream is(filename);
 
@@ -43,6 +47,26 @@ static void loadMatrix(const std::string &filename, KDTree::Matrix &mat)
     }
 }
 
+template<typename Tree>
+void testPerformance(Tree &kdtree, Matrix &mat)
+{
+    std::cout << "Building kdtree" << std::endl;
+    auto start = std::chrono::steady_clock::now();
+    kdtree.build();
+    auto end = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    std::cout << "-- Took " << duration / 1e6 << "s." << std::endl;
+
+    typename Tree::Matrix dists;
+    typename Tree::MatrixI idxs;
+    std::cout << "Querying kdtree" << std::endl;
+    start = std::chrono::steady_clock::now();
+    kdtree.query(mat, 20, idxs, dists);
+    end = std::chrono::steady_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    std::cout << "-- Took " << duration / 1e6 << "s." << std::endl;
+}
+
 int main(int argc, char** argv)
 {
     if(argc != 2)
@@ -52,36 +76,33 @@ int main(int argc, char** argv)
     }
 
     std::string filename = argv[1];
-    KDTree::Matrix mat;
+    Matrix mat;
     std::cout << "Loading " << filename << std::endl;
     loadMatrix(filename, mat);
 
     std::cout << "Matrix (" << mat.rows() << "," << mat.cols() << ")" << std::endl;
     std:: cout << mat.block(0, 0, 3, 10) << std::endl;
 
-    KDTree kdtree(mat);
+    kdt::KDTree<Scalar> kdtree(mat);
     kdtree.setSorted(true);
     kdtree.setBalanced(false);
     kdtree.setCompact(true);
     kdtree.setMaxDistance(0.5);
     kdtree.setThreads(0);
     kdtree.setTakeRoot(false);
+    kdtree.setBucketSize(16);
 
-    std::cout << "Building kdtree" << std::endl;
-    auto start = std::chrono::steady_clock::now();
-    kdtree.build();
-    auto end = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-    std::cout << "-- Took " << duration / 1e6 << "s." << std::endl;
+    std::cout << "KDTree" << std::endl;
+    testPerformance(kdtree, mat);
 
-    KDTree::Matrix dists;
-    KDTree::MatrixI idxs;
-    std::cout << "Querying kdtree" << std::endl;
-    start = std::chrono::steady_clock::now();
-    kdtree.query(mat, 20, idxs, dists);
-    end = std::chrono::steady_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-    std::cout << "-- Took " << duration / 1e6 << "s." << std::endl;
+
+    kdt::KDTreeFlann<Scalar> kdtree2(mat);
+    kdtree2.setIndexParams(flann::KDTreeSingleIndexParams(16));
+    kdtree2.setThreads(0);
+    kdtree.setMaxDistance(0.5);
+
+    std::cout << "KDTreeFlann" << std::endl;
+    testPerformance(kdtree2, mat);
 
     return 0;
 }
