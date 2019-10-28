@@ -13,6 +13,7 @@
 
 namespace knn
 {
+    /** Class for performing brute force knn search. */
     template<typename Scalar,
         typename Distance=EuclideanDistance<Scalar>>
     class BruteForce
