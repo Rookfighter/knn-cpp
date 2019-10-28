@@ -54,23 +54,5 @@ install(FILES
 
 if(${BUILD_TESTS})
     # Compile tests
-    set(TEST_SRC
-        "test/main.cpp"
-        "test/test_kdtree_eigen.cpp"
-    )
-    if(${FLANN_FOUND})
-        list(APPEND TEST_SRC "test/test_kdtree_flann.cpp")
-    endif(${FLANN_FOUND})
-    if(${ANN_FOUND})
-        list(APPEND TEST_SRC "test/test_kdtree_ann.cpp")
-    endif(${ANN_FOUND})
-
-    add_executable(run_tests ${TEST_SRC})
-    if(${LIBS})
-        target_link_libraries(run_tests ${LIBS})
-    endif(${LIBS})
+    add_subdirectory(test)
 endif(${BUILD_TESTS})
-
-if(${BUILD_PERFORMANCE_TEST})
-    add_executable(test_performance test/test_performance.cpp)
-endif(${BUILD_PERFORMANCE_TEST})

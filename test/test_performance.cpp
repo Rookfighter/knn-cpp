@@ -4,8 +4,8 @@
  * Created On: 30 Jan 2019
  */
 
-#include <kdtree_eigen.h>
-#include <kdtree_flann.h>
+#include <knn/kdtree_eigen.h>
+#include <knn/kdtree_flann.h>
 #include <string>
 #include <fstream>
 #include <sstream>
@@ -83,7 +83,7 @@ int main(int argc, char** argv)
     std::cout << "Matrix (" << mat.rows() << "," << mat.cols() << ")" << std::endl;
     std:: cout << mat.block(0, 0, 3, 10) << std::endl;
 
-    kdt::KDTree<Scalar> kdtree(mat);
+    knn::KDTree<Scalar> kdtree(mat);
     kdtree.setSorted(true);
     kdtree.setBalanced(false);
     kdtree.setCompact(true);
@@ -96,7 +96,7 @@ int main(int argc, char** argv)
     testPerformance(kdtree, mat);
 
 
-    kdt::KDTreeFlann<Scalar> kdtree2(mat);
+    knn::KDTreeFlann<Scalar> kdtree2(mat);
     kdtree2.setIndexParams(flann::KDTreeSingleIndexParams(16));
     kdtree2.setThreads(0);
     kdtree.setMaxDistance(0.5);

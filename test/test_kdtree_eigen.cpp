@@ -4,12 +4,12 @@
  * Created On: 08 Nov 2018
  */
 
-#include <kdtree_eigen.h>
+#include <knn/kdtree_eigen.h>
 #include <catch.hpp>
 #include "eigen_assert.h"
 
 typedef double Scalar;
-typedef kdt::KDTree<Scalar> KDTree;
+typedef knn::KDTree<Scalar> KDTree;
 typedef KDTree::Matrix Matrix;
 typedef KDTree::MatrixI MatrixI;
 
@@ -73,7 +73,7 @@ TEST_CASE("KDTree")
 
     SECTION("euclidean query multiple")
     {
-        kdt::KDTree<Scalar, kdt::EuclideanDistance<Scalar>> kdtree2;
+        knn::KDTree<Scalar, knn::EuclideanDistance<Scalar>> kdtree2;
 
         Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 1,
@@ -106,7 +106,7 @@ TEST_CASE("KDTree")
 
     SECTION("manhatten query multiple")
     {
-        kdt::KDTree<Scalar, kdt::ManhattenDistance<Scalar>> kdtree2;
+        knn::KDTree<Scalar, knn::ManhattenDistance<Scalar>> kdtree2;
 
         Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 3,
@@ -139,7 +139,7 @@ TEST_CASE("KDTree")
 
     SECTION("minkowski query multiple")
     {
-        kdt::KDTree<Scalar, kdt::MinkowskiDistance<Scalar, 2>> kdtree2;
+        knn::KDTree<Scalar, knn::MinkowskiDistance<Scalar, 2>> kdtree2;
 
         Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 1,
@@ -172,7 +172,7 @@ TEST_CASE("KDTree")
 
     SECTION("chebyshev query multiple")
     {
-        kdt::KDTree<Scalar, kdt::ChebyshevDistance<Scalar>> kdtree2;
+        knn::KDTree<Scalar, knn::ChebyshevDistance<Scalar>> kdtree2;
 
         Matrix data(3, 9);
         data << 1, 2, 4, 4, 4, 1, 1, 5, 3,

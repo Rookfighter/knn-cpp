@@ -10,175 +10,16 @@
  * Mount.
  */
 
-#ifndef KDT_KDTREE_EIGEN_H_
-#define KDT_KDTREE_EIGEN_H_
+#ifndef KNN_KDTREE_EIGEN_H_
+#define KNN_KDTREE_EIGEN_H_
 
-#include <Eigen/Geometry>
-#include <vector>
 #include <algorithm>
+#include "knn/distance_functors.h"
+#include "knn/query_heap.h"
 
-namespace kdt
+namespace knn
 {
-    /** Functor for manhatten distance. This the same as the L1 minkowski
-      * distance but more efficient.*/
-    template <typename Scalar>
-    struct ManhattenDistance
-    {
-        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
-        typedef typename Vector::Index Index;
-
-        Scalar unrooted(const Scalar *vecA,
-            const Scalar *vecB,
-            const Index len) const
-        {
-            Scalar result = 0.0;
-            for(Index i = 0; i < len; ++i)
-            {
-                Scalar diff = vecA[i] - vecB[i];
-                result += power(diff);
-            }
-            return result;
-        }
-
-        Scalar rooted(const Scalar *vecA,
-            const Scalar *vecB,
-            const Index len) const
-        {
-            return unrooted(vecA, vecB, len);
-        }
-
-        Scalar root(const Scalar val) const
-        {
-            return val;
-        }
-
-        Scalar power(const Scalar val) const
-        {
-            return std::abs(val);
-        }
-    };
-
-    /** Functor for euclidean distance. This the same as the L2 minkowski
-      * distance but more efficient. */
-    template <typename Scalar>
-    struct EuclideanDistance
-    {
-        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
-        typedef typename Vector::Index Index;
-
-        Scalar unrooted(const Scalar *vecA,
-            const Scalar *vecB,
-            const Index len) const
-        {
-            Scalar result = 0.0;
-            for(Index i = 0; i < len; ++i)
-            {
-                Scalar diff = vecA[i] - vecB[i];
-                result += power(diff);
-            }
-            return result;
-        }
-
-        Scalar rooted(const Scalar *vecA,
-            const Scalar *vecB,
-            const Index len) const
-        {
-            return root(unrooted(vecA, vecB, len));
-        }
-
-        Scalar root(const Scalar val) const
-        {
-            return std::sqrt(val);
-        }
-
-        Scalar power(const Scalar val) const
-        {
-            return val * val;
-        }
-    };
-
-    /** Functor for general minkowski distance. The infinite version is only
-      * available through the ChebyshevDistance functor. */
-    template <typename Scalar, int P>
-    struct MinkowskiDistance
-    {
-        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
-        typedef typename Vector::Index Index;
-
-        Scalar unrooted(const Scalar *vecA,
-            const Scalar *vecB,
-            const Index len) const
-        {
-            Scalar result = 0.0;
-            for(Index i = 0; i < len; ++i)
-            {
-                Scalar diff = vecA[i] - vecB[i];
-                result += power(diff);
-            }
-            return result;
-        }
-
-        Scalar rooted(const Scalar *vecA,
-            const Scalar *vecB,
-            const Index len) const
-        {
-            return root(unrooted(vecA, vecB, len));
-        }
-
-        Scalar root(const Scalar val) const
-        {
-            return std::pow(val, 1.0 / static_cast<Scalar>(P));
-        }
-
-        Scalar power(const Scalar val) const
-        {
-            Scalar result = std::abs(val);
-            for(int i = 1; i < P; ++i)
-                result *= result;
-            return result;
-        }
-    };
-
-    /** Chebyshev distance functor. This distance is the same as infinity
-      * minkowski distance. */
-    template<typename Scalar>
-    struct ChebyshevDistance
-    {
-        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
-        typedef typename Vector::Index Index;
-
-        Scalar unrooted(const Scalar *vecA,
-            const Scalar *vecB,
-            const Index len) const
-        {
-            Scalar result = 0.0;
-            for(Index i = 0; i < len; ++i)
-            {
-                Scalar diff = vecA[i] - vecB[i];
-                result = std::max(result, power(diff));
-            }
-            return result;
-        }
-
-        Scalar rooted(const Scalar *vecA,
-            const Scalar *vecB,
-            const Index len) const
-        {
-            return root(unrooted(vecA, vecB, len));
-        }
-
-        Scalar root(const Scalar val) const
-        {
-            return val;
-        }
-
-        Scalar power(const Scalar val) const
-        {
-            return std::abs(val);
-        }
-    };
-
-    /** Class for performing k nearest neighbour searches. */
+    /** Class for performing k nearest neighbour searches with minkowski distances. */
     template<typename Scalar,
         typename Distance=EuclideanDistance<Scalar>>
     class KDTree
@@ -186,7 +27,6 @@ namespace kdt
     public:
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
-        typedef typename Matrix::Index Index;
         typedef Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic> MatrixI;
         typedef Eigen::Matrix<Index, Eigen::Dynamic, 1> VectorI;
 
@@ -250,113 +90,6 @@ namespace kdt
             bool hasRight() const
             {
                 return right >= 0;
-            }
-        };
-
-        class QueryHeap
-        {
-        private:
-            Index *indices_;
-            Scalar *distances_;
-            size_t maxSize_;
-            size_t size_;
-        public:
-            QueryHeap(Index *indices, Scalar *distances, const size_t maxSize)
-                : indices_(indices), distances_(distances), maxSize_(maxSize),
-                size_(0)
-            {
-            }
-
-            void push(const Index idx, const Scalar dist)
-            {
-                if(full())
-                    throw std::runtime_error("heap is full");
-                // add new value at the end
-                indices_[size_] = idx;
-                distances_[size_] = dist;
-                ++size_;
-
-                // upheap
-                size_t k = size_ - 1;
-                while(k > 0 && distances_[(k - 1) / 2] < dist)
-                {
-                    size_t tmp = (k - 1) / 2;
-                    distances_[k] = distances_[tmp];
-                    indices_[k] = indices_[tmp];
-                    k = tmp;
-                }
-                distances_[k] = dist;
-                indices_[k] = idx;
-            }
-
-            void pop()
-            {
-                if(empty())
-                    throw std::runtime_error("heap is empty");
-                // replace first element with last
-                distances_[0] = distances_[size_-1];
-                indices_[0] = indices_[size_-1];
-                --size_;
-
-                // downheap
-                size_t k = 0;
-                Scalar dist = distances_[0];
-                Index idx = indices_[0];
-                while(2 * k + 1 < size_)
-                {
-                    size_t j = 2 * k + 1;
-                    if(j + 1 < size_ && distances_[j+1] > distances_[j])
-                        ++j;
-                    // j references now greates child
-                    if(dist >= distances_[j])
-                        break;
-                    distances_[k] = distances_[j];
-                    indices_[k] = indices_[j];
-                    k = j;
-                }
-                distances_[k] = dist;
-                indices_[k] = idx;
-            }
-
-            Scalar front() const
-            {
-                if(empty())
-                    throw std::runtime_error("heap is empty");
-
-                return distances_[0];
-            }
-
-            bool full() const
-            {
-                return size_ >= maxSize_;
-            }
-
-            bool empty() const
-            {
-                return size_ == 0;
-            }
-
-            size_t size() const
-            {
-                return size_;
-            }
-
-            void clear()
-            {
-                size_ = 0;
-            }
-
-            void sort()
-            {
-                size_t cnt = size_;
-                for(size_t i = 0; i < cnt; ++i)
-                {
-                    Index idx = indices_[0];
-                    Scalar dist = distances_[0];
-                    pop();
-                    indices_[cnt - i - 1] = idx;
-                    distances_[cnt - i - 1] = dist;
-                }
             }
         };
 
@@ -605,15 +338,14 @@ namespace kdt
                 return buildInnerNode(startIdx, length, mins, maxes);
         }
 
+        template<typename Derived>
         void queryLeafNode(const Node &node,
-            const Scalar *queryPoint,
-            const Index len,
-            QueryHeap &dataHeap) const
+            const Eigen::MatrixBase<Derived> &queryPoint,
+            QueryHeap<Scalar> &dataHeap) const
         {
             assert(node.isLeaf());
 
             const Matrix &data = *data_;
-            const Scalar *dataRaw = data.data();
 
             // go through all points in this leaf node and do brute force search
             for(Index i = 0; i < node.length; ++i)
@@ -623,8 +355,7 @@ namespace kdt
 
                 // retrieve index of the current data point
                 Index dataIdx = indices_[idx];
-                const Scalar *dataPoint = &dataRaw[dataIdx * len];
-                Scalar dist = distance_.unrooted(queryPoint, dataPoint, len);
+                Scalar dist = distance_.unrooted(queryPoint, data.col(dataIdx));
 
                 // check if point is in range if max distance was set
                 bool isInRange = maxDist_ <= 0 || dist < maxDistP_;
@@ -641,21 +372,21 @@ namespace kdt
             }
         }
 
+        template<typename Derived>
         void queryInnerNode(const Node &node,
-            const Scalar *queryPoint,
-            const Index len,
-            QueryHeap &dataHeap) const
+            const Eigen::MatrixBase<Derived> &queryPoint,
+            QueryHeap<Scalar> &dataHeap) const
         {
             assert(node.isInner());
 
-            Scalar splitval = queryPoint[node.splitaxis];
+            Scalar splitval = queryPoint(node.splitaxis, 0);
 
             // check if right or left child should be visited
             bool visitRight = splitval >= node.splitpoint;
             if(visitRight)
-                queryR(nodes_[node.right], queryPoint, len, dataHeap);
+                queryR(nodes_[node.right], queryPoint, dataHeap);
             else
-                queryR(nodes_[node.left], queryPoint, len, dataHeap);
+                queryR(nodes_[node.left], queryPoint, dataHeap);
 
             // get distance to split point
             Scalar splitdist = distance_.power(splitval - node.splitpoint);
@@ -669,21 +400,21 @@ namespace kdt
             if(isInRange && isImprovement)
             {
                 if(visitRight)
-                    queryR(nodes_[node.left], queryPoint, len, dataHeap);
+                    queryR(nodes_[node.left], queryPoint, dataHeap);
                 else
-                    queryR(nodes_[node.right], queryPoint, len, dataHeap);
+                    queryR(nodes_[node.right], queryPoint, dataHeap);
             }
         }
 
+        template<typename Derived>
         void queryR(const Node &node,
-            const Scalar *queryPoint,
-            const Index len,
-            QueryHeap &dataHeap) const
+            const Eigen::MatrixBase<Derived> &queryPoint,
+            QueryHeap<Scalar> &dataHeap) const
         {
             if(node.isLeaf())
-                queryLeafNode(node, queryPoint, len, dataHeap);
+                queryLeafNode(node, queryPoint, dataHeap);
             else
-                queryInnerNode(node, queryPoint, len, dataHeap);
+                queryInnerNode(node, queryPoint, dataHeap);
         }
 
         Index depthR(const Node &node) const
@@ -728,7 +459,6 @@ namespace kdt
 
         /** Set the maximum amount of data points per leaf in the tree (aka
           * bucket size).
-          *
           * @param bucketSize amount of points per leaf. */
         void setBucketSize(const Index bucketSize)
         {
@@ -737,7 +467,6 @@ namespace kdt
 
         /** Set if the points returned by the queries should be sorted
           * according to their distance to the query points.
-          *
           * @param sorted sort query results */
         void setSorted(const bool sorted)
         {
@@ -745,7 +474,6 @@ namespace kdt
         }
 
         /** Set if the tree should be built as balanced as possible.
-          *
           * This increases build time, but decreases search time.
           * @param balanced set true to build a balanced tree */
         void setBalanced(const bool balanced)
@@ -754,7 +482,6 @@ namespace kdt
         }
 
         /** Set if the distances after the query should be rooted or not.
-          *
           * Taking the root of the distances increases query time, but the
           * function will return true distances instead of their powered
           * versions.
@@ -765,7 +492,6 @@ namespace kdt
         }
 
         /** Set if the tree should be built with compact leaf nodes.
-          *
           * This increases build time, but makes leaf nodes denser (more)
           * points. Thus less visits are necessary.
           * @param compact set true ti build a tree with compact leafs */
@@ -776,7 +502,6 @@ namespace kdt
 
         /** Set the amount of threads that should be used for building and
           * querying the tree.
-          *
           * OpenMP has to be enabled for this to work.
           * @param threads amount of threads, 0 for optimal choice */
         void setThreads(const unsigned int threads)
@@ -785,7 +510,6 @@ namespace kdt
         }
 
         /** Set the maximum distance for querying the tree.
-          *
           * The search will be pruned if the maximum distance is set to any
           * positive number.
           * @param maxDist maximum distance, <= 0 for no limit */
@@ -796,7 +520,6 @@ namespace kdt
         }
 
         /** Set the data points used for this tree.
-          *
           * This does not build the tree.
           * @param data NxM matrix, M points of dimension N
           * @param copy if true data is copied, assumes static data otherwise */
@@ -815,7 +538,6 @@ namespace kdt
         }
 
         /** Builds the search index of the tree.
-          *
           * Data has to be set and must be non-empty. */
         void build()
         {
@@ -837,7 +559,7 @@ namespace kdt
 
             findDataMinMax(startIdx, length, mins, maxes);
 
-            Index root = buildR(startIdx, length, mins, maxes);
+            buildR(startIdx, length, mins, maxes);
         }
 
         /** Queries the tree for the nearest neighbours of the given query
@@ -857,7 +579,8 @@ namespace kdt
           * @param indices KNNxM matrix, indices of neighbours in the data set
           * @param distances KNNxM matrix, distance between query points and
           *        neighbours */
-        void query(const Matrix &queryPoints,
+        template<typename Derived>
+        void query(const Eigen::MatrixBase<Derived> &queryPoints,
             const size_t knn,
             MatrixI &indices,
             Matrix &distances) const
@@ -868,27 +591,22 @@ namespace kdt
             if(queryPoints.rows() != dimension())
                 throw std::runtime_error("cannot query KDTree; data and query points do not have same dimension");
 
-            Index queryNum = queryPoints.cols();
-            Index dim = queryPoints.rows();
+            distances.setConstant(knn, queryPoints.cols(), -1);
+            indices.setConstant(knn, queryPoints.cols(), -1);
 
-            distances.setConstant(knn, queryNum, -1);
-            indices.setConstant(knn, queryNum, -1);
-
-            const Scalar *queryPointsRaw = queryPoints.data();
             Index *indicesRaw = indices.data();
             Scalar *distsRaw = distances.data();
 
             #pragma omp parallel for num_threads(threads_)
-            for(Index i = 0; i < queryNum; ++i)
+            for(Index i = 0; i < queryPoints.cols(); ++i)
             {
-                const Scalar *queryPoint = &queryPointsRaw[i * dim];
                 Scalar *distPoint = &distsRaw[i * knn];
                 Index *idxPoint = &indicesRaw[i * knn];
 
                 // create heap to find nearest neighbours
-                QueryHeap dataHeap(idxPoint, distPoint, knn);
+                QueryHeap<Scalar> dataHeap(idxPoint, distPoint, knn);
 
-                queryR(nodes_[0], queryPoint, dim, dataHeap);
+                queryR(nodes_[0], queryPoints.col(i), dataHeap);
 
                 if(sorted_)
                     dataHeap.sort();

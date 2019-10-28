@@ -4,13 +4,13 @@
  * Created On: 09 Nov 2018
  */
 
-#ifndef KDT_KDTREE_FLANN_H_
-#define KDT_KDTREE_FLANN_H_
+#ifndef KNN_KDTREE_FLANN_H_
+#define KNN_KDTREE_FLANN_H_
 
 #include <Eigen/Geometry>
 #include <flann/flann.hpp>
 
-namespace kdt
+namespace knn
 {
     template<typename Scalar,
         typename Distance=flann::L2_Simple<Scalar>>
