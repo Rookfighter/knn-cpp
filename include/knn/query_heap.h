@@ -10,6 +10,7 @@
 
 #include <stdexcept>
 #include <vector>
+#include "knn/matrix.h"
 
 namespace knn
 {

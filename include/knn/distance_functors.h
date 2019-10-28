@@ -8,13 +8,11 @@
 #ifndef KNN_DISTANCE_FUNCTORS_H_
 #define KNN_DISTANCE_FUNCTORS_H_
 
-#include <Eigen/Geometry>
 #include <type_traits>
+#include "knn/matrix.h"
 
 namespace knn
 {
-    typedef long int Index;
-
     /** Functor for manhatten distance. This the same as the L1 minkowski
       * distance but more efficient.*/
     template <typename Scalar>
