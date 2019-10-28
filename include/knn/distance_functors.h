@@ -13,8 +13,9 @@
 
 namespace knn
 {
-    /** Functor for manhatten distance. This the same as the L1 minkowski
-      * distance but more efficient.*/
+    /** Manhatten distance functor.
+      * This the same as the L1 minkowski distance but more efficient.
+      * @see EuclideanDistance, ChebyshevDistance, MinkowskiDistance */
     template <typename Scalar>
     struct ManhattenDistance
     {
@@ -50,8 +51,9 @@ namespace knn
         }
     };
 
-    /** Functor for euclidean distance.
-      * This the same as the L2 minkowski distance but more efficient. */
+    /** Euclidean distance functor.
+      * This the same as the L2 minkowski distance but more efficient.
+      * @see ManhattenDistance, ChebyshevDistance, MinkowskiDistance */
     template <typename Scalar>
     struct EuclideanDistance
     {
@@ -87,9 +89,9 @@ namespace knn
         }
     };
 
-    /** Functor for general minkowski distance.
-      * The infinite version is only available through the ChebyshevDistance
-      * functor. */
+    /** General minkowski distance functor.
+      * The infinite version is only available through the chebyshev distance.
+      * @see ManhattenDistance, EuclideanDistance, ChebyshevDistance  */
     template <typename Scalar, int P>
     struct MinkowskiDistance
     {
@@ -137,7 +139,8 @@ namespace knn
     };
 
     /** Chebyshev distance functor.
-      * This distance is the same as infinity minkowski distance. */
+      * This distance is the same as infinity minkowski distance.
+      * @see ManhattenDistance, EuclideanDistance, MinkowskiDistance */
     template<typename Scalar>
     struct ChebyshevDistance
     {

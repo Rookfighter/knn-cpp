@@ -12,6 +12,7 @@
 
 namespace knn
 {
+    /** Wrapper class of FLANN kdtrees for the use with Eigen3. */
     template<typename Scalar,
         typename Distance=flann::L2_Simple<Scalar>>
     class KDTreeFlann

@@ -14,6 +14,7 @@
 
 namespace knn
 {
+    /** Efficient heap structure to query nearest neighbours. */
     template<typename Scalar>
     class QueryHeap
     {
