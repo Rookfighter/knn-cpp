@@ -1,6 +1,9 @@
+include_directories(".")
+
 set(TEST_SRC
     "main.cpp"
-    "test_kdtree_eigen.cpp"
+    "knn/kdtree_eigen.cpp"
+    "knn/brute_force.cpp"
 )
 
 # if(${FLANN_FOUND})

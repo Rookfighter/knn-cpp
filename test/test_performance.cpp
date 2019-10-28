@@ -13,10 +13,8 @@
 #include <iostream>
 
 typedef double Scalar;
+typedef knn::Index Index;
 typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
-typedef typename Matrix::Index Index;
-typedef Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic> MatrixI;
-typedef Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic> Matrixi;
 
 static void loadMatrix(const std::string &filename, Matrix &mat)
 {
@@ -57,8 +55,8 @@ void testPerformance(Tree &kdtree, Matrix &mat)
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
     std::cout << "-- Took " << duration / 1e6 << "s." << std::endl;
 
-    typename Tree::Matrix dists;
-    typename Tree::MatrixI idxs;
+    Matrix dists;
+    typename Tree::Matrixi idxs;
     std::cout << "Querying kdtree" << std::endl;
     start = std::chrono::steady_clock::now();
     kdtree.query(mat, 20, idxs, dists);

@@ -1,24 +1,21 @@
-/* test_kdtree_eigen.cpp
+/* kdtree_eigen.cpp
  *
  *     Author: Fabian Meyer
  * Created On: 08 Nov 2018
  */
 
 #include <knn/kdtree_eigen.h>
-#include <catch.hpp>
-#include "eigen_assert.h"
+#include "assert/eigen_require.h"
 
 typedef double Scalar;
-typedef knn::KDTree<Scalar> KDTree;
-typedef KDTree::Matrix Matrix;
-typedef KDTree::MatrixI MatrixI;
+typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
+typedef knn::Matrixi Matrixi;
 
 TEST_CASE("KDTree")
 {
-    KDTree kdtree;
-
     SECTION("build unbalanced")
     {
+        knn::KDTree<Scalar> kdtree;
         Matrix data(3, 4);
         data << 1, 3, 0, 1,
             0, 1, 2, 0,
@@ -33,11 +30,13 @@ TEST_CASE("KDTree")
 
     SECTION("build no data")
     {
+        knn::KDTree<Scalar> kdtree;
         REQUIRE_THROWS(kdtree.build());
     }
 
     SECTION("build empty")
     {
+        knn::KDTree<Scalar> kdtree;
         Matrix data(3, 0);
 
         kdtree.setData(data);
@@ -47,6 +46,7 @@ TEST_CASE("KDTree")
 
     SECTION("query one")
     {
+        knn::KDTree<Scalar> kdtree;
         Matrix data(3, 4);
         data << 1, 3, 0, 5,
             0, 1, 2, 4,
@@ -60,7 +60,7 @@ TEST_CASE("KDTree")
 
         Matrix points(3, 1);
         points << 0, 1, 0;
-        MatrixI indices;
+        Matrixi indices;
         Matrix distances;
 
         kdtree.query(points, 1, indices, distances);
@@ -73,138 +73,139 @@ TEST_CASE("KDTree")
 
     SECTION("euclidean query multiple")
     {
-        knn::KDTree<Scalar, knn::EuclideanDistance<Scalar>> kdtree2;
+        knn::KDTree<Scalar, knn::EuclideanDistance<Scalar>> kdtree;
 
         Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 1,
                 2, 1, 0, 3, 2, 1, 0, 3, 1,
                 3, 1, 3, 1, 3, 4, 4, 2, 1;
 
-        kdtree2.setBucketSize(2);
-        kdtree2.setData(data);
-        kdtree2.build();
+        kdtree.setBucketSize(2);
+        kdtree.setData(data);
+        kdtree.build();
 
-        REQUIRE(kdtree2.size() == 9);
+        REQUIRE(kdtree.size() == 9);
 
         Matrix points(3, 1);
         points << 0, 1, 0;
 
-        MatrixI indicesExp(3, 1);
+        Matrixi indicesExp(3, 1);
         indicesExp << 8, 1, 3;
         Matrix distancesExp(3, 1);
         distancesExp << std::sqrt(2), std::sqrt(5), std::sqrt(6);
 
-        MatrixI indices;
+        Matrixi indices;
         Matrix distances;
-        kdtree2.query(points, 3, indices, distances);
+        kdtree.query(points, 3, indices, distances);
 
         REQUIRE(indices.size() == 3);
         REQUIRE(distances.size() == 3);
-        REQUIRE_MAT(indicesExp, indices);
-        REQUIRE_MAT_APPROX(distancesExp, distances, 1e-3);
+        REQUIRE_MATRIX(indicesExp, indices);
+        REQUIRE_MATRIX_APPROX(distancesExp, distances, 1e-3);
     }
 
     SECTION("manhatten query multiple")
     {
-        knn::KDTree<Scalar, knn::ManhattenDistance<Scalar>> kdtree2;
+        knn::KDTree<Scalar, knn::ManhattenDistance<Scalar>> kdtree;
 
         Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 3,
                 2, 1, 0, 3, 2, 1, 0, 3, 4,
                 3, 1, 3, 1, 3, 4, 4, 2, 1;
 
-        kdtree2.setBucketSize(2);
-        kdtree2.setData(data);
-        kdtree2.build();
+        kdtree.setBucketSize(2);
+        kdtree.setData(data);
+        kdtree.build();
 
-        REQUIRE(kdtree2.size() == 9);
+        REQUIRE(kdtree.size() == 9);
 
         Matrix points(3, 1);
         points << 0, 1, 0;
 
-        MatrixI indicesExp(3, 1);
+        Matrixi indicesExp(3, 1);
         indicesExp << 1, 3, 0;
         Matrix distancesExp(3, 1);
         distancesExp << 3, 4, 5;
 
-        MatrixI indices;
+        Matrixi indices;
         Matrix distances;
-        kdtree2.query(points, 3, indices, distances);
+        kdtree.query(points, 3, indices, distances);
 
         REQUIRE(indices.size() == 3);
         REQUIRE(distances.size() == 3);
-        REQUIRE_MAT(indicesExp, indices);
-        REQUIRE_MAT_APPROX(distancesExp, distances, 1e-3);
+        REQUIRE_MATRIX(indicesExp, indices);
+        REQUIRE_MATRIX_APPROX(distancesExp, distances, 1e-3);
     }
 
     SECTION("minkowski query multiple")
     {
-        knn::KDTree<Scalar, knn::MinkowskiDistance<Scalar, 2>> kdtree2;
+        knn::KDTree<Scalar, knn::MinkowskiDistance<Scalar, 2>> kdtree;
 
         Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 1,
                 2, 1, 0, 3, 2, 1, 0, 3, 1,
                 3, 1, 3, 1, 3, 4, 4, 2, 1;
 
-        kdtree2.setBucketSize(2);
-        kdtree2.setData(data);
-        kdtree2.build();
+        kdtree.setBucketSize(2);
+        kdtree.setData(data);
+        kdtree.build();
 
-        REQUIRE(kdtree2.size() == 9);
+        REQUIRE(kdtree.size() == 9);
 
         Matrix points(3, 1);
         points << 0, 1, 0;
 
-        MatrixI indicesExp(3, 1);
+        Matrixi indicesExp(3, 1);
         indicesExp << 8, 1, 3;
         Matrix distancesExp(3, 1);
         distancesExp << std::sqrt(2), std::sqrt(5), std::sqrt(6);
 
-        MatrixI indices;
+        Matrixi indices;
         Matrix distances;
-        kdtree2.query(points, 3, indices, distances);
+        kdtree.query(points, 3, indices, distances);
 
         REQUIRE(indices.size() == 3);
         REQUIRE(distances.size() == 3);
-        REQUIRE_MAT(indicesExp, indices);
-        REQUIRE_MAT_APPROX(distancesExp, distances, 1e-3);
+        REQUIRE_MATRIX(indicesExp, indices);
+        REQUIRE_MATRIX_APPROX(distancesExp, distances, 1e-3);
     }
 
     SECTION("chebyshev query multiple")
     {
-        knn::KDTree<Scalar, knn::ChebyshevDistance<Scalar>> kdtree2;
+        knn::KDTree<Scalar, knn::ChebyshevDistance<Scalar>> kdtree;
 
         Matrix data(3, 9);
         data << 1, 2, 4, 4, 4, 1, 1, 5, 3,
                 2, 1, 0, 3, 2, 1, 0, 3, 4,
                 3, 1, 3, 1, 3, 0, 4, 2, 6;
 
-        kdtree2.setBucketSize(2);
-        kdtree2.setData(data);
-        kdtree2.build();
+        kdtree.setBucketSize(2);
+        kdtree.setData(data);
+        kdtree.build();
 
-        REQUIRE(kdtree2.size() == 9);
+        REQUIRE(kdtree.size() == 9);
 
         Matrix points(3, 1);
         points << 0, 1, 0;
 
-        MatrixI indicesExp(3, 1);
+        Matrixi indicesExp(3, 1);
         indicesExp << 5, 1, 0;
         Matrix distancesExp(3, 1);
         distancesExp << 1, 2, 3;
 
-        MatrixI indices;
+        Matrixi indices;
         Matrix distances;
-        kdtree2.query(points, 3, indices, distances);
+        kdtree.query(points, 3, indices, distances);
 
         REQUIRE(indices.size() == 3);
         REQUIRE(distances.size() == 3);
-        REQUIRE_MAT(indicesExp, indices);
-        REQUIRE_MAT_APPROX(distancesExp, distances, 1e-3);
+        REQUIRE_MATRIX(indicesExp, indices);
+        REQUIRE_MATRIX_APPROX(distancesExp, distances, 1e-3);
     }
 
     SECTION("query many")
     {
+        knn::KDTree<Scalar> kdtree;
         Matrix dataPts(3, 50);
         dataPts << -22.58, -80.33, 42.48, -10.11, -87.03, -40.01, -9.88, 98.56,
             -43.11, -49.37, 1.31, -55.78, -89.13, 54.78, -84.68, 67.34, 17.49,
@@ -230,7 +231,7 @@ TEST_CASE("KDTree")
             3.92, -80.29, -45.93, 53.99, 41.71;
 
         size_t knn = 10;
-        MatrixI indicesExp(knn, queryPts.cols());
+        Matrixi indicesExp(knn, queryPts.cols());
         indicesExp << 45, 18, 23, 26, 19,
             35, 28, 35, 42, 9,
             49, 27, 46, 49, 29,
@@ -269,12 +270,12 @@ TEST_CASE("KDTree")
             kdtree.setData(dataPts);
             kdtree.build();
 
-            MatrixI indicesAct;
+            Matrixi indicesAct;
             Matrix distsAct;
             kdtree.query(queryPts, knn, indicesAct, distsAct);
 
-            REQUIRE_MAT(indicesExp, indicesAct);
-            REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+            REQUIRE_MATRIX(indicesExp, indicesAct);
+            REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
         }
 
         SECTION("low bucket size")
@@ -283,12 +284,12 @@ TEST_CASE("KDTree")
             kdtree.setData(dataPts);
             kdtree.build();
 
-            MatrixI indicesAct;
+            Matrixi indicesAct;
             Matrix distsAct;
             kdtree.query(queryPts, knn, indicesAct, distsAct);
 
-            REQUIRE_MAT(indicesExp, indicesAct);
-            REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+            REQUIRE_MATRIX(indicesExp, indicesAct);
+            REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
         }
 
         SECTION("balanced")
@@ -298,12 +299,12 @@ TEST_CASE("KDTree")
             kdtree.setData(dataPts);
             kdtree.build();
 
-            MatrixI indicesAct;
+            Matrixi indicesAct;
             Matrix distsAct;
             kdtree.query(queryPts, knn, indicesAct, distsAct);
 
-            REQUIRE_MAT(indicesExp, indicesAct);
-            REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+            REQUIRE_MATRIX(indicesExp, indicesAct);
+            REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
         }
 
         SECTION("non-compact")
@@ -313,17 +314,18 @@ TEST_CASE("KDTree")
             kdtree.setData(dataPts);
             kdtree.build();
 
-            MatrixI indicesAct;
+            Matrixi indicesAct;
             Matrix distsAct;
             kdtree.query(queryPts, knn, indicesAct, distsAct);
 
-            REQUIRE_MAT(indicesExp, indicesAct);
-            REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+            REQUIRE_MATRIX(indicesExp, indicesAct);
+            REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
         }
     }
 
     SECTION("query maximum distance")
     {
+        knn::KDTree<Scalar> kdtree;
         Matrix dataPts(3, 50);
         dataPts << 99.88, -19.59, -74.16, 86.5, 47.21, -72.68, -1.97, -54.12,
             -9.22, 79.25, 94.14, 44.77, -34.63, 52.89, -91.08, -34.02, 1.02,
@@ -349,7 +351,7 @@ TEST_CASE("KDTree")
             10.3, -96.74, 72.87, -19.65, 70.21;
 
         size_t knn = 10;
-        MatrixI indicesExp(knn, queryPts.cols());
+        Matrixi indicesExp(knn, queryPts.cols());
         indicesExp << 11, 14, 2, 12, 18,
             9, 33, 24, 7, 34,
             46, 25, 27, 5, 35,
@@ -384,12 +386,12 @@ TEST_CASE("KDTree")
             kdtree.setData(dataPts);
             kdtree.build();
 
-            MatrixI indicesAct;
+            Matrixi indicesAct;
             Matrix distsAct;
             kdtree.query(queryPts, knn, indicesAct, distsAct);
 
-            REQUIRE_MAT(indicesExp, indicesAct);
-            REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+            REQUIRE_MATRIX(indicesExp, indicesAct);
+            REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
         }
 
         SECTION("low bucket size")
@@ -398,12 +400,12 @@ TEST_CASE("KDTree")
             kdtree.setData(dataPts);
             kdtree.build();
 
-            MatrixI indicesAct;
+            Matrixi indicesAct;
             Matrix distsAct;
             kdtree.query(queryPts, knn, indicesAct, distsAct);
 
-            REQUIRE_MAT(indicesExp, indicesAct);
-            REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+            REQUIRE_MATRIX(indicesExp, indicesAct);
+            REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
         }
 
         SECTION("balanced")
@@ -413,12 +415,12 @@ TEST_CASE("KDTree")
             kdtree.setData(dataPts);
             kdtree.build();
 
-            MatrixI indicesAct;
+            Matrixi indicesAct;
             Matrix distsAct;
             kdtree.query(queryPts, knn, indicesAct, distsAct);
 
-            REQUIRE_MAT(indicesExp, indicesAct);
-            REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+            REQUIRE_MATRIX(indicesExp, indicesAct);
+            REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
         }
 
         SECTION("non-compact")
@@ -428,12 +430,12 @@ TEST_CASE("KDTree")
             kdtree.setData(dataPts);
             kdtree.build();
 
-            MatrixI indicesAct;
+            Matrixi indicesAct;
             Matrix distsAct;
             kdtree.query(queryPts, knn, indicesAct, distsAct);
 
-            REQUIRE_MAT(indicesExp, indicesAct);
-            REQUIRE_MAT_APPROX(distsExp, distsAct, 1e-3);
+            REQUIRE_MATRIX(indicesExp, indicesAct);
+            REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
         }
     }
 }
