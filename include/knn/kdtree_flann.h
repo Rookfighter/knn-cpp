@@ -19,8 +19,7 @@ namespace knn
     public:
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
-        typedef typename Matrix::Index Index;
-        typedef Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic> MatrixI;
+        typedef Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic> Matrixi;
 
     private:
         typedef flann::Index<Distance> FlannIndex;
@@ -119,7 +118,7 @@ namespace knn
 
         void query(Matrix &queryPoints,
             const size_t knn,
-            MatrixI &indices,
+            Matrixi &indices,
             Matrix &distances) const
         {
             if(index_ == nullptr)

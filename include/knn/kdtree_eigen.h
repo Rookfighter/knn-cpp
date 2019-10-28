@@ -27,9 +27,7 @@ namespace knn
     public:
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
-        typedef Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic> MatrixI;
-        typedef Eigen::Matrix<Index, Eigen::Dynamic, 1> VectorI;
-
+        typedef knn::Matrixi Matrixi;
     private:
         /** Struct representing a node in the KDTree.
           * It can be either a inner node or a leaf node. */
@@ -103,7 +101,7 @@ namespace knn
         bool compact_;
         bool balanced_;
         bool takeRoot_;
-        int threads_;
+        Index threads_;
         Scalar maxDist_;
         Scalar maxDistP_;
 
@@ -443,7 +441,6 @@ namespace knn
 
         /** Constructs KDTree with the given data. This does not build the
           * the index of the tree.
-          *
           * @param data NxM matrix, M points of dimension N
           * @param copy if true copies the data, otherwise assumes static data */
         KDTree(const Matrix &data, const bool copy=false)
@@ -537,6 +534,11 @@ namespace knn
             }
         }
 
+        void setDistance(const Distance &distance)
+        {
+            distance_ = distance;
+        }
+
         /** Builds the search index of the tree.
           * Data has to be set and must be non-empty. */
         void build()
@@ -582,7 +584,7 @@ namespace knn
         template<typename Derived>
         void query(const Eigen::MatrixBase<Derived> &queryPoints,
             const size_t knn,
-            MatrixI &indices,
+            Matrixi &indices,
             Matrix &distances) const
         {
             if(nodes_.size() == 0)
@@ -630,7 +632,6 @@ namespace knn
         }
 
         /** Returns the amount of data points stored in the search index.
-          *
           * @return number of data points */
         Index size() const
         {
@@ -638,7 +639,6 @@ namespace knn
         }
 
         /** Returns the dimension of the data points in the search index.
-          *
           * @return dimension of data points */
         Index dimension() const
         {
@@ -646,7 +646,6 @@ namespace knn
         }
 
         /** Returns the maxximum depth of the tree.
-          *
           * @return maximum depth of the tree */
         Index depth() const
         {
