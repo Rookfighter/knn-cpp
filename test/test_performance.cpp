@@ -4,7 +4,7 @@
  * Created On: 30 Jan 2019
  */
 
-#include <knn/kdtree_eigen.h>
+#include <knn/kdtree_minkowski.h>
 #include <knn/kdtree_flann.h>
 #include <string>
 #include <fstream>
@@ -81,7 +81,7 @@ int main(int argc, char** argv)
     std::cout << "Matrix (" << mat.rows() << "," << mat.cols() << ")" << std::endl;
     std:: cout << mat.block(0, 0, 3, 10) << std::endl;
 
-    knn::KDTree<Scalar> kdtree(mat);
+    knn::KDTreeMinkowski<Scalar> kdtree(mat);
     kdtree.setSorted(true);
     kdtree.setBalanced(false);
     kdtree.setCompact(true);
@@ -90,7 +90,7 @@ int main(int argc, char** argv)
     kdtree.setTakeRoot(false);
     kdtree.setBucketSize(16);
 
-    std::cout << "KDTree" << std::endl;
+    std::cout << "KDTreeMinkowski" << std::endl;
     testPerformance(kdtree, mat);
 
 

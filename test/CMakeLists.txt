@@ -2,7 +2,7 @@ include_directories(".")
 
 set(TEST_SRC
     "main.cpp"
-    "knn/kdtree_eigen.cpp"
+    "knn/kdtree_minkowski.cpp"
     "knn/brute_force.cpp"
 )
 

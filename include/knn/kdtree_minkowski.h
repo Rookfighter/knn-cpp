@@ -1,4 +1,4 @@
-/* kdtree_eigen.h
+/* kdtree_minkowski.h
  *
  *     Author: Fabian Meyer
  * Created On: 08 Nov 2018
@@ -10,8 +10,8 @@
  * Mount.
  */
 
-#ifndef KNN_KDTREE_EIGEN_H_
-#define KNN_KDTREE_EIGEN_H_
+#ifndef KNN_KDTREE_MINKOWSKI_H_
+#define KNN_KDTREE_MINKOWSKI_H_
 
 #include <algorithm>
 #include "knn/distance_functors.h"
@@ -19,10 +19,13 @@
 
 namespace knn
 {
-    /** Class for performing k nearest neighbour searches with minkowski distances. */
+    /** Class for performing k nearest neighbour searches with minkowski distances.
+      * This kdtree only works reliably with the minkowski distance and its
+      * special cases like manhatten or euclidean distance.
+      * @see ManhattenDistance, EuclideanDistance, ChebyshevDistance, MinkowskiDistance*/
     template<typename Scalar,
         typename Distance=EuclideanDistance<Scalar>>
-    class KDTree
+    class KDTreeMinkowski
     {
     public:
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
@@ -49,26 +52,20 @@ namespace knn
             Node()
                 : startIdx(0), length(0), left(-1), right(-1),
                 splitaxis(-1), splitpoint(0)
-            {
-
-            }
+            { }
 
             /** Constructor for leaf nodes */
             Node(const Index startIdx, const Index length)
                 : startIdx(startIdx), length(length), left(-1), right(-1),
                 splitaxis(-1), splitpoint(0)
-            {
-
-            }
+            { }
 
             /** Constructor for inner nodes */
             Node(const Index splitaxis, const Scalar splitpoint,
                 const Index left, const Index right)
                 : startIdx(0), length(0), left(left), right(right),
                 splitaxis(splitaxis), splitpoint(splitpoint)
-            {
-
-            }
+            { }
 
             bool isLeaf() const
             {
@@ -430,28 +427,21 @@ namespace knn
     public:
 
         /** Constructs an empty KDTree. */
-        KDTree()
+        KDTreeMinkowski()
             : dataCopy_(), data_(nullptr), indices_(), nodes_(),
             bucketSize_(16), sorted_(true), compact_(true), balanced_(false),
             takeRoot_(true), threads_(0), maxDist_(0), maxDistP_(0),
             distance_()
-        {
-
-        }
+        { }
 
         /** Constructs KDTree with the given data. This does not build the
           * the index of the tree.
           * @param data NxM matrix, M points of dimension N
           * @param copy if true copies the data, otherwise assumes static data */
-        KDTree(const Matrix &data, const bool copy=false)
-            : KDTree()
+        KDTreeMinkowski(const Matrix &data, const bool copy=false)
+            : KDTreeMinkowski()
         {
             setData(data, copy);
-        }
-
-        ~KDTree()
-        {
-
         }
 
         /** Set the maximum amount of data points per leaf in the tree (aka
@@ -652,9 +642,6 @@ namespace knn
             return nodes_.size() == 0 ? 0 : depthR(nodes_.front());
         }
     };
-
-    typedef KDTree<float> KDTreef;
-    typedef KDTree<double> KDTreed;
 }
 
 #endif
