@@ -9,7 +9,7 @@ before_build:
     - cmake -DBUILD_TESTS=True .
 
 build:
-    project: $(APPVEYOR_BUILD_FOLDER)\kdtree-eigen.sln
+    project: $(APPVEYOR_BUILD_FOLDER)\knn-cpp.sln
 
 test_script:
-    - '%APPVEYOR_BUILD_FOLDER%\Debug\run_tests.exe'
+    - '%APPVEYOR_BUILD_FOLDER%\test\Debug\run_tests.exe'

@@ -1,4 +1,9 @@
-include_directories(".")
+
+include_directories(
+    "."
+    ${CATCH2_INCLUDE_DIR}
+    ${FLANN_INCLUDE_DIRS}
+)
 
 set(TEST_SRC
     "main.cpp"
@@ -12,7 +17,7 @@ set(TEST_SRC
 
 add_executable(run_tests ${TEST_SRC})
 if(${LIBS})
-    target_link_libraries(run_tests ${LIBS})
+    target_link_libraries(run_tests ${FLANN_LIBRARIES})
 endif(${LIBS})
 
 if(${BUILD_PERFORMANCE_TEST})

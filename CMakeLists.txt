@@ -4,7 +4,7 @@
 # Created On: 08 Nov 2018
 
 cmake_minimum_required(VERSION 3.5)
-project(kdtree-eigen)
+project(knn-cpp)
 
 SET(CMAKE_CXX_STANDARD 11)
 SET(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -14,11 +14,6 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 endif(CMAKE_COMPILER_IS_GNUCXX)
 
-# Find Flann
-find_package(Flann)
-# Find ANN
-# find_package(ANN)
-
 # find OpenMP
 find_package(OpenMP)
 if(OPENMP_FOUND)
@@ -27,29 +22,17 @@ if(OPENMP_FOUND)
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif(OPENMP_FOUND)
 
+# Find Flann
+find_package(Flann)
+
 add_subdirectory(dep)
 
 include_directories(
     include
     ${EIGEN3_INCLUDE_DIR}
-    ${CATCH2_INCLUDE_DIR}
 )
 
-set(LIBS "")
-
-if(${FLANN_FOUND})
-    include_directories(${FLANN_INCLUDE_DIRS})
-    list(APPEND LIBS ${FLANN_LIBRARIES})
-endif(${FLANN_FOUND})
-if(${ANN_FOUND})
-    include_directories(${ANN_INCLUDE_DIRS})
-    list(APPEND LIBS ${ANN_LIBRARIES})
-endif(${ANN_FOUND})
-
-install(FILES
-    "include/kdtree_ann.h"
-    "include/kdtree_eigen.h"
-    "include/kdtree_flann.h"
+install(DIRECTORY "include/knn"
     DESTINATION include)
 
 if(${BUILD_TESTS})
