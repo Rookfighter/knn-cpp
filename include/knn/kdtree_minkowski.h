@@ -350,7 +350,7 @@ namespace knn
 
                 // retrieve index of the current data point
                 Index dataIdx = indices_[idx];
-                Scalar dist = distance_.unrooted(queryPoint, data.col(dataIdx));
+                Scalar dist = distance_(queryPoint, data.col(dataIdx));
 
                 // check if point is in range if max distance was set
                 bool isInRange = maxDist_ <= 0 || dist < maxDistP_;
@@ -384,7 +384,7 @@ namespace knn
                 queryR(nodes_[node.left], queryPoint, dataHeap);
 
             // get distance to split point
-            Scalar splitdist = distance_.power(splitval - node.splitpoint);
+            Scalar splitdist = distance_(splitval, node.splitpoint);
 
             // check if node is in range if max distance was set
             bool isInRange = maxDist_ <= 0 || splitdist < maxDistP_;
@@ -503,7 +503,7 @@ namespace knn
         void setMaxDistance(const Scalar maxDist)
         {
             maxDist_ = maxDist;
-            maxDistP_ = distance_.power(maxDist);
+            maxDistP_ = distance_(maxDist, 0);
         }
 
         /** Set the data points used for this tree.
@@ -609,7 +609,7 @@ namespace knn
                     {
                         if(distPoint[j] < 0)
                             break;
-                        distPoint[j] = distance_.root(distPoint[j]);
+                        distPoint[j] = distance_(distPoint[j]);
                     }
                 }
             }

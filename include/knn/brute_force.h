@@ -82,7 +82,7 @@ namespace knn
         void setMaxDistance(const Scalar maxDist)
         {
             maxDist_ = maxDist;
-            maxDistP_ = distance_.power(maxDist);
+            maxDistP_ = distance_(maxDist, 0);
         }
 
         /** Set the data points used for this tree.
@@ -138,7 +138,7 @@ namespace knn
 
                 for(Index j = 0; j < dataPoints.cols(); ++j)
                 {
-                    Scalar dist = distance_.unrooted(queryPoints.col(i), dataPoints.col(j));
+                    Scalar dist = distance_(queryPoints.col(i), dataPoints.col(j));
 
                     if((maxDistP_ <= 0 || dist <= maxDistP_) &&
                         (!heap.full() || dist < heap.front()))
@@ -158,7 +158,7 @@ namespace knn
                     {
                         if(distPoint[j] < 0)
                             break;
-                        distPoint[j] = distance_.root(distPoint[j]);
+                        distPoint[j] = distance_(distPoint[j]);
                     }
                 }
             }

@@ -19,8 +19,11 @@ namespace knn
     template <typename Scalar>
     struct ManhattenDistance
     {
+        /** Compute the unrooted distance between two vectors.
+          * @param lhs vector on left hand side
+          * @param rhs vector on right hand side */
         template<typename DerivedA, typename DerivedB>
-        Scalar unrooted(const Eigen::MatrixBase<DerivedA> &lhs,
+        Scalar operator()(const Eigen::MatrixBase<DerivedA> &lhs,
             const Eigen::MatrixBase<DerivedB> &rhs) const
         {
             static_assert(
@@ -33,21 +36,20 @@ namespace knn
             return (lhs - rhs).cwiseAbs().sum();
         }
 
-        template<typename DerivedA, typename DerivedB>
-        Scalar rooted(const Eigen::MatrixBase<DerivedA> &lhs,
-            const Eigen::MatrixBase<DerivedB> &rhs) const
+        /** Compute the unrooted distance between two scalars.
+          * @param lhs scalar on left hand side
+          * @param rhs scalar on right hand side */
+        Scalar operator()(const Scalar lhs,
+            const Scalar rhs) const
         {
-            return unrooted(lhs, rhs);
+            return std::abs(lhs - rhs);
         }
 
-        Scalar root(const Scalar val) const
+        /** Compute the root of a unrooted distance value.
+          * @param value unrooted distance value */
+        Scalar operator()(const Scalar val) const
         {
             return val;
-        }
-
-        Scalar power(const Scalar val) const
-        {
-            return std::abs(val);
         }
     };
 
@@ -57,8 +59,11 @@ namespace knn
     template <typename Scalar>
     struct EuclideanDistance
     {
+        /** Compute the unrooted distance between two vectors.
+          * @param lhs vector on left hand side
+          * @param rhs vector on right hand side */
         template<typename DerivedA, typename DerivedB>
-        Scalar unrooted(const Eigen::MatrixBase<DerivedA> &lhs,
+        Scalar operator()(const Eigen::MatrixBase<DerivedA> &lhs,
             const Eigen::MatrixBase<DerivedB> &rhs) const
         {
             static_assert(
@@ -71,21 +76,21 @@ namespace knn
             return (lhs - rhs).cwiseAbs2().sum();
         }
 
-        template<typename DerivedA, typename DerivedB>
-        Scalar rooted(const Eigen::MatrixBase<DerivedA> &lhs,
-            const Eigen::MatrixBase<DerivedB> &rhs) const
+        /** Compute the unrooted distance between two scalars.
+          * @param lhs scalar on left hand side
+          * @param rhs scalar on right hand side */
+        Scalar operator()(const Scalar lhs,
+            const Scalar rhs) const
         {
-            return std::sqrt(unrooted(lhs, rhs));
+            Scalar diff = lhs - rhs;
+            return diff * diff;
         }
 
-        Scalar root(const Scalar val) const
+        /** Compute the root of a unrooted distance value.
+          * @param value unrooted distance value */
+        Scalar operator()(const Scalar val) const
         {
             return std::sqrt(val);
-        }
-
-        Scalar power(const Scalar val) const
-        {
-            return val * val;
         }
     };
 
@@ -106,8 +111,11 @@ namespace knn
             }
         };
 
+        /** Compute the unrooted distance between two vectors.
+          * @param lhs vector on left hand side
+          * @param rhs vector on right hand side */
         template<typename DerivedA, typename DerivedB>
-        Scalar unrooted(const Eigen::MatrixBase<DerivedA> &lhs,
+        Scalar operator()(const Eigen::MatrixBase<DerivedA> &lhs,
             const Eigen::MatrixBase<DerivedB> &rhs) const
         {
             static_assert(
@@ -120,21 +128,20 @@ namespace knn
             return (lhs - rhs).cwiseAbs().unaryExpr(MinkowskiDistance::Pow()).sum();
         }
 
-        template<typename DerivedA, typename DerivedB>
-        Scalar rooted(const Eigen::MatrixBase<DerivedA> &lhs,
-            const Eigen::MatrixBase<DerivedB> &rhs) const
+        /** Compute the unrooted distance between two scalars.
+          * @param lhs scalar on left hand side
+          * @param rhs scalar on right hand side */
+        Scalar operator()(const Scalar lhs,
+            const Scalar rhs) const
         {
-            return root(unrooted(lhs, rhs));
+            return std::pow(std::abs(lhs - rhs), P);;
         }
 
-        Scalar root(const Scalar val) const
+        /** Compute the root of a unrooted distance value.
+          * @param value unrooted distance value */
+        Scalar operator()(const Scalar val) const
         {
             return std::pow(val, 1 / static_cast<Scalar>(P));
-        }
-
-        Scalar power(const Scalar val) const
-        {
-            return std::pow(std::abs(val), P);
         }
     };
 
@@ -144,8 +151,11 @@ namespace knn
     template<typename Scalar>
     struct ChebyshevDistance
     {
+        /** Compute the unrooted distance between two vectors.
+          * @param lhs vector on left hand side
+          * @param rhs vector on right hand side */
         template<typename DerivedA, typename DerivedB>
-        Scalar unrooted(const Eigen::MatrixBase<DerivedA> &lhs,
+        Scalar operator()(const Eigen::MatrixBase<DerivedA> &lhs,
             const Eigen::MatrixBase<DerivedB> &rhs) const
         {
             static_assert(
@@ -158,21 +168,20 @@ namespace knn
             return (lhs - rhs).cwiseAbs().maxCoeff();
         }
 
-        template<typename DerivedA, typename DerivedB>
-        Scalar rooted(const Eigen::MatrixBase<DerivedA> &lhs,
-            const Eigen::MatrixBase<DerivedB> &rhs) const
+        /** Compute the unrooted distance between two scalars.
+          * @param lhs scalar on left hand side
+          * @param rhs scalar on right hand side */
+        Scalar operator()(const Scalar lhs,
+            const Scalar rhs) const
         {
-            return unrooted(lhs, rhs);
+            return std::abs(lhs - rhs);
         }
 
-        Scalar root(const Scalar val) const
+        /** Compute the root of a unrooted distance value.
+          * @param value unrooted distance value */
+        Scalar operator()(const Scalar val) const
         {
             return val;
-        }
-
-        Scalar power(const Scalar val) const
-        {
-            return std::abs(val);
         }
     };
 
@@ -184,25 +193,26 @@ namespace knn
     template<typename Scalar>
     struct HammingDistance
     {
-        template<typename ScalarInt>
+        static_assert(std::is_integral<Scalar>::value,
+            "HammingDistance requires integral Scalar type");
+
         struct XOR
         {
-            ScalarInt operator()(const ScalarInt lhs, const ScalarInt rhs) const
+            Scalar operator()(const Scalar lhs, const Scalar rhs) const
             {
                 return lhs ^ rhs;
             }
         };
 
-        template<typename ScalarInt>
         struct BitCount
         {
-            ScalarInt operator()(const ScalarInt lhs) const
+            Scalar operator()(const Scalar lhs) const
             {
-                ScalarInt copy = lhs;
-                ScalarInt result = 0;
+                Scalar copy = lhs;
+                Scalar result = 0;
                 while(copy)
                 {
-                    result++;
+                    ++result;
                     copy &= (copy - 1);
                 }
 
@@ -210,40 +220,42 @@ namespace knn
             }
         };
 
+        /** Compute the unrooted distance between two vectors.
+          * @param lhs vector on left hand side
+          * @param rhs vector on right hand side */
         template<typename DerivedA, typename DerivedB>
-        Scalar unrooted(const Eigen::MatrixBase<DerivedA> &lhs,
+        Scalar operator()(const Eigen::MatrixBase<DerivedA> &lhs,
             const Eigen::MatrixBase<DerivedB> &rhs) const
         {
-            typedef typename Eigen::MatrixBase<DerivedA>::Scalar ScalarIntA;
-            typedef typename Eigen::MatrixBase<DerivedB>::Scalar ScalarIntB;
             static_assert(
-                std::is_same<ScalarIntA, ScalarIntB>::value,
-                "HammingDistance requires matrices of same scalar type");
+                std::is_same<typename Eigen::MatrixBase<DerivedA>::Scalar,Scalar>::value,
+                "distance scalar and input matrix A must have same type");
             static_assert(
-                std::is_integral<ScalarIntA>::value,
-                "HammingDistance requires integral matrix types");
+                std::is_same<typename Eigen::MatrixBase<DerivedB>::Scalar, Scalar>::value,
+                "distance scalar and input matrix B must have same type");
 
-            return static_cast<Scalar>(lhs.
-                binaryExp(rhs, HammingDistance::XOR<ScalarIntA>()).
-                unaryExp(HammingDistance::BitCount<ScalarIntA>()).
-                sum());
+            return lhs.
+                binaryExp(rhs, XOR()).
+                unaryExp(BitCount()).
+                sum();
         }
 
-        template<typename DerivedA, typename DerivedB>
-        Scalar rooted(const Eigen::MatrixBase<DerivedA> &lhs,
-            const Eigen::MatrixBase<DerivedB> &rhs) const
+        /** Compute the unrooted distance between two scalars.
+          * @param lhs scalar on left hand side
+          * @param rhs scalar on right hand side */
+        Scalar operator()(const Scalar lhs,
+            const Scalar rhs) const
         {
-            return unrooted(lhs, rhs);
+            BitCount cnt;
+            XOR xOr;
+            return cnt(xOr(lhs, rhs));
         }
 
-        Scalar root(const Scalar val) const
+        /** Compute the root of a unrooted distance value.
+          * @param value unrooted distance value */
+        Scalar operator()(const Scalar value) const
         {
-            return val;
-        }
-
-        Scalar power(const Scalar val) const
-        {
-            return val;
+            return value;
         }
     };
 }
