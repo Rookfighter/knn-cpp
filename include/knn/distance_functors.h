@@ -235,8 +235,8 @@ namespace knn
                 "distance scalar and input matrix B must have same type");
 
             return lhs.
-                binaryExp(rhs, XOR()).
-                unaryExp(BitCount()).
+                binaryExpr(rhs, XOR()).
+                unaryExpr(BitCount()).
                 sum();
         }
 
