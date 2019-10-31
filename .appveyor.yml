@@ -6,7 +6,7 @@ install:
     - git submodule update --init --recursive
 
 before_build:
-    - cmake -DBUILD_TESTS=True .
+    - cmake -DBUILD_TESTS=True -DBUILD_EXAMPLES=True .
 
 build:
     project: $(APPVEYOR_BUILD_FOLDER)\knn-cpp.sln

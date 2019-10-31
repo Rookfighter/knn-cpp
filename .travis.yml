@@ -16,6 +16,6 @@ install:
 script:
     - mkdir build
     - cd build
-    - cmake -DBUILD_TESTS=True ..
+    - cmake -DBUILD_TESTS=True -DBUILD_EXAMPLES=True ..
     - make
     - ./test/run_tests
