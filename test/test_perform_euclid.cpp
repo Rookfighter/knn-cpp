@@ -4,6 +4,7 @@
  * Created On: 30 Jan 2019
  */
 
+#include <knn/brute_force.h>
 #include <knn/kdtree_minkowski.h>
 #include <knn/kdtree_flann.h>
 #include <string>
@@ -81,7 +82,16 @@ int main(int argc, char** argv)
     std::cout << "Matrix (" << mat.rows() << "," << mat.cols() << ")" << std::endl;
     std:: cout << mat.block(0, 0, 3, 10) << std::endl;
 
-    knn::KDTreeMinkowski<Scalar> kdtree(mat);
+    // knn::BruteForce<Scalar, knn::EuclideanDistance<Scalar>> bf(mat);
+    // bf.setSorted(true);
+    // bf.setMaxDistance(0.5);
+    // bf.setThreads(0);
+    // bf.setTakeRoot(false);
+    //
+    // std::cout << "BruteForce" << std::endl;
+    // testPerformance(bf, mat);
+
+    knn::KDTreeMinkowski<Scalar, knn::EuclideanDistance<Scalar>> kdtree(mat);
     kdtree.setSorted(true);
     kdtree.setBalanced(false);
     kdtree.setCompact(true);
@@ -92,7 +102,6 @@ int main(int argc, char** argv)
 
     std::cout << "KDTreeMinkowski" << std::endl;
     testPerformance(kdtree, mat);
-
 
     knn::KDTreeFlann<Scalar> kdtree2(mat);
     kdtree2.setIndexParams(flann::KDTreeSingleIndexParams(16));
