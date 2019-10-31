@@ -35,7 +35,10 @@ include_directories(
 install(DIRECTORY "include/knn"
     DESTINATION include)
 
+if(${BUILD_EXAMPLES})
+    add_subdirectory(examples)
+endif(${BUILD_EXAMPLES})
+
 if(${BUILD_TESTS})
-    # Compile tests
     add_subdirectory(test)
 endif(${BUILD_TESTS})
