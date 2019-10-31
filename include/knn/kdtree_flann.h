@@ -7,7 +7,7 @@
 #ifndef KNN_KDTREE_FLANN_H_
 #define KNN_KDTREE_FLANN_H_
 
-#include <Eigen/Geometry>
+#include "knn/matrix.h"
 #include <flann/flann.hpp>
 
 namespace knn

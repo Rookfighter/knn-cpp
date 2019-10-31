@@ -5,17 +5,18 @@
  */
 
 #include <catch.hpp>
-#include <kdtree_flann.h>
+#include <knn/kdtree_flann.h>
 
-typedef kdt::KDTreeFlannd KDTree;
+typedef double Scalar;
+typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
+typedef typename knn::KDTreeFlann<Scalar>::Matrixi Matrixi;
 
-TEST_CASE("KDTreeFlann")
+TEST_CASE("kdtree_flann")
 {
-    KDTree kdtree;
-
     SECTION("query one")
     {
-        KDTree::Matrix data(3, 4);
+        knn::KDTreeFlann<Scalar> kdtree;
+        Matrix data(3, 4);
         data << 1, 3, 0, 4,
             0, 1, 2, 3,
             3, 2, 0, 5;
@@ -25,11 +26,11 @@ TEST_CASE("KDTreeFlann")
 
         REQUIRE(kdtree.size() == 4);
 
-        KDTree::Matrix points(3, 1);
+        Matrix points(3, 1);
         points << 0, 1, 0;
-        KDTree::MatrixI indices;
-        KDTree::Matrix distances;
 
+        Matrixi indices;
+        Matrix distances;
         kdtree.query(points, 1, indices, distances);
 
         REQUIRE(indices.size() == 1);
@@ -40,12 +41,14 @@ TEST_CASE("KDTreeFlann")
 
     SECTION("build no data")
     {
+        knn::KDTreeFlann<Scalar> kdtree;
         REQUIRE_THROWS(kdtree.build());
     }
 
     SECTION("build empty")
     {
-        KDTree::Matrix data(3, 0);
+        knn::KDTreeFlann<Scalar> kdtree;
+        Matrix data(3, 0);
 
         kdtree.setData(data);
         REQUIRE(kdtree.size() == 0);
@@ -54,7 +57,8 @@ TEST_CASE("KDTreeFlann")
 
     SECTION("query all")
     {
-        KDTree::Matrix data(3, 9);
+        knn::KDTreeFlann<Scalar> kdtree;
+        Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 3,
                 2, 1, 0, 3, 2, 1, 0, 3, 0,
                 2, 1, 3, 1, 2, 2, 3, 2, 1;
@@ -64,11 +68,11 @@ TEST_CASE("KDTreeFlann")
 
         REQUIRE(kdtree.size() == 9);
 
-        KDTree::Matrix points(3, 1);
+        Matrix points(3, 1);
         points << 0, 1, 0;
 
-        KDTree::MatrixI indices;
-        KDTree::Matrix distances;
+        Matrixi indices;
+        Matrix distances;
         kdtree.query(points, 9, indices, distances);
 
         REQUIRE(indices.size() == 9);
@@ -82,7 +86,8 @@ TEST_CASE("KDTreeFlann")
 
     SECTION("query maximum distance")
     {
-        KDTree::Matrix data(3, 4);
+        knn::KDTreeFlann<Scalar> kdtree;
+        Matrix data(3, 4);
         data << 1, 3, 0, 5,
             0, 1, 3, 4,
             3, 2, 0, 3;
@@ -93,10 +98,10 @@ TEST_CASE("KDTreeFlann")
 
         REQUIRE(kdtree.size() == 4);
 
-        KDTree::Matrix points(3, 1);
+        Matrix points(3, 1);
         points << 0, 1, 0;
-        KDTree::MatrixI indices;
-        KDTree::Matrix distances;
+        Matrixi indices;
+        Matrix distances;
 
         kdtree.query(points, 2, indices, distances);
 

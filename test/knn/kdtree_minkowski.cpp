@@ -11,7 +11,7 @@ typedef double Scalar;
 typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 typedef knn::Matrixi Matrixi;
 
-TEST_CASE("KDTreeMinkowski")
+TEST_CASE("kdtree_minkowski")
 {
     SECTION("build unbalanced")
     {
