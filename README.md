@@ -5,7 +5,7 @@
 ![Travis Status](https://travis-ci.org/Rookfighter/knn-cpp.svg?branch=master)
 ![Appveyer Status](https://ci.appveyor.com/api/projects/status/2ul9sh3f2cvev1a1?svg=true)
 
-```knn-cpp``` is a header-only C++ library for KNN nearest neighbor search
+```knn-cpp``` is a header-only C++ library for k nearest neighbor search
 using the ```Eigen3``` library.
 
 It implements various interfaces for KNN search:
