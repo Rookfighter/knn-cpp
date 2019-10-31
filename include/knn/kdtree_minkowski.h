@@ -353,7 +353,7 @@ namespace knn
                 Scalar dist = distance_(queryPoint, data.col(dataIdx));
 
                 // check if point is in range if max distance was set
-                bool isInRange = maxDist_ <= 0 || dist < maxDistP_;
+                bool isInRange = maxDist_ <= 0 || dist <= maxDistP_;
                 // check if this node was an improvement if heap is already full
                 bool isImprovement = !dataHeap.full() ||
                     dist < dataHeap.front();
@@ -387,7 +387,7 @@ namespace knn
             Scalar splitdist = distance_(splitval, node.splitpoint);
 
             // check if node is in range if max distance was set
-            bool isInRange = maxDist_ <= 0 || splitdist < maxDistP_;
+            bool isInRange = maxDist_ <= 0 || splitdist <= maxDistP_;
             // check if this node was an improvement if heap is already full
             bool isImprovement = !dataHeap.full() ||
                 splitdist < dataHeap.front();
