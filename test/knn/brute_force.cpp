@@ -296,7 +296,7 @@ TEST_CASE("brute_force")
             -1, -1, -1, -1, 64.5714371839,
             -1, -1, -1, -1, 70.4561466446;
 
-        bruteforce.setMaxDistance(75.0);
+        bruteforce.setMaxDistance(75.0 * 75.0);
         bruteforce.setData(dataPts);
         bruteforce.build();
 

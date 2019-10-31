@@ -379,7 +379,7 @@ TEST_CASE("kdtree_minkowski")
             -1, -1, -1, -1, 64.5714371839,
             -1, -1, -1, -1, 70.4561466446;
 
-        kdtree.setMaxDistance(75.0);
+        kdtree.setMaxDistance(75.0 * 75.0);
 
         SECTION("default")
         {

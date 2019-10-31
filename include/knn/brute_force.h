@@ -31,13 +31,12 @@ namespace knn
         bool takeRoot_;
         Index threads_;
         Scalar maxDist_;
-        Scalar maxDistP_;
 
     public:
 
         BruteForce()
             : distance_(), dataCopy_(), data_(nullptr), sorted_(true),
-            takeRoot_(true), threads_(1), maxDist_(0), maxDistP_(0)
+            takeRoot_(true), threads_(1), maxDist_(0)
         { }
 
         /** Constructs a brute force instance with the given data.
@@ -82,7 +81,6 @@ namespace knn
         void setMaxDistance(const Scalar maxDist)
         {
             maxDist_ = maxDist;
-            maxDistP_ = distance_(maxDist, 0);
         }
 
         /** Set the data points used for this tree.
@@ -140,8 +138,12 @@ namespace knn
                 {
                     Scalar dist = distance_(queryPoints.col(i), dataPoints.col(j));
 
-                    if((maxDistP_ <= 0 || dist <= maxDistP_) &&
-                        (!heap.full() || dist < heap.front()))
+                    // check if point is in range if max distance was set
+                    bool isInRange = maxDist_ <= 0 || dist <= maxDist_;
+                    // check if this node was an improvement if heap is already full
+                    bool isImprovement = !heap.full() ||
+                        dist < heap.front();
+                    if(isInRange && isImprovement)
                     {
                         if(heap.full())
                             heap.pop();
@@ -156,7 +158,7 @@ namespace knn
                 {
                     for(size_t j = 0; j < knn; ++j)
                     {
-                        if(distPoint[j] < 0)
+                        if(idxPoint[j] < 0)
                             break;
                         distPoint[j] = distance_(distPoint[j]);
                     }

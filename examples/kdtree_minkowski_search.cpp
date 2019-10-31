@@ -53,7 +53,7 @@ int main()
     // Set the maximum inclusive distance for the query. Set to 0 or negative
     // to disable maximum distances.
     // Default is 0.
-    kdtree.setMaxDistance(2.5);
+    kdtree.setMaxDistance(2.5 * 2.5);
     // Set how many threads should be used during the query. Set to 0 or
     // negative to autodetect the optimal number of threads (OpenMP only).
     // Default is 1.

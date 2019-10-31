@@ -100,7 +100,6 @@ namespace knn
         bool takeRoot_;
         Index threads_;
         Scalar maxDist_;
-        Scalar maxDistP_;
 
         Distance distance_;
 
@@ -353,7 +352,7 @@ namespace knn
                 Scalar dist = distance_(queryPoint, data.col(dataIdx));
 
                 // check if point is in range if max distance was set
-                bool isInRange = maxDist_ <= 0 || dist <= maxDistP_;
+                bool isInRange = maxDist_ <= 0 || dist <= maxDist_;
                 // check if this node was an improvement if heap is already full
                 bool isImprovement = !dataHeap.full() ||
                     dist < dataHeap.front();
@@ -387,7 +386,7 @@ namespace knn
             Scalar splitdist = distance_(splitval, node.splitpoint);
 
             // check if node is in range if max distance was set
-            bool isInRange = maxDist_ <= 0 || splitdist <= maxDistP_;
+            bool isInRange = maxDist_ <= 0 || splitdist <= maxDist_;
             // check if this node was an improvement if heap is already full
             bool isImprovement = !dataHeap.full() ||
                 splitdist < dataHeap.front();
@@ -430,8 +429,7 @@ namespace knn
         KDTreeMinkowski()
             : dataCopy_(), data_(nullptr), indices_(), nodes_(),
             bucketSize_(16), sorted_(true), compact_(true), balanced_(false),
-            takeRoot_(true), threads_(0), maxDist_(0), maxDistP_(0),
-            distance_()
+            takeRoot_(true), threads_(0), maxDist_(0), distance_()
         { }
 
         /** Constructs KDTree with the given data. This does not build the
@@ -503,7 +501,6 @@ namespace knn
         void setMaxDistance(const Scalar maxDist)
         {
             maxDist_ = maxDist;
-            maxDistP_ = distance_(maxDist, 0);
         }
 
         /** Set the data points used for this tree.
