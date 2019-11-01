@@ -21,5 +21,6 @@ add_executable(run_tests ${TEST_SRC})
 target_link_libraries(run_tests ${FLANN_LIBRARIES})
 
 if(${BUILD_PERFORMANCE_TEST})
-    add_executable(test_perform_euclid "test_perform_euclid.cpp")
+    add_executable(performance_euclidean "performance_euclidean.cpp")
+    add_executable(performance_hamming "performance_hamming.cpp")
 endif(${BUILD_PERFORMANCE_TEST})
