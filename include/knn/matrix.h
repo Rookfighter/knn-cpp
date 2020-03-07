@@ -12,7 +12,7 @@
 
 namespace knn
 {
-    typedef long int Index;
+    typedef typename Eigen::MatrixXd::Index Index;
 
     typedef Eigen::Matrix<Index, Eigen::Dynamic, 1> Vectori;
     typedef Eigen::Matrix<Index, 2, 1> Vector2i;
