@@ -7,7 +7,7 @@
 #ifndef KNN_EIGEN_REQUIRE_H_
 #define KNN_EIGEN_REQUIRE_H_
 
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <knn/matrix.h>
 
 #define REQUIRE_MATRIX_APPROX(a, b, eps) do {                                 \

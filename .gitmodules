@@ -1,6 +1,6 @@
+[submodule "dep/catch2"]
+	path = dep/Catch2
+	url = https://github.com/catchorg/Catch2.git
 [submodule "dep/eigen"]
 	path = dep/eigen
-	url = https://github.com/eigenteam/eigen-git-mirror.git
-[submodule "dep/catch2"]
-	path = dep/catch2
-	url = https://github.com/catchorg/Catch2.git
+	url = https://gitlab.com/libeigen/eigen.git

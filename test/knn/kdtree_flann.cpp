@@ -4,7 +4,7 @@
  * Created On: 08 Nov 2018
  */
 
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <knn/kdtree_flann.h>
 
 typedef double Scalar;
