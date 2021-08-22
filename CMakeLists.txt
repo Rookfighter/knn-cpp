@@ -22,8 +22,12 @@ if(OPENMP_FOUND)
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif(OPENMP_FOUND)
 
-# Find Flann
-find_package(Flann)
+# Find Flann and its dependencies
+# if its was enabled
+if(KNNCPP_FLANN)
+    find_package(Flann)
+    find_library(LZ4_LIBRARY NAMES lz4)
+endif(KNNCPP_FLANN)
 
 add_subdirectory(dep)
 

@@ -11,7 +11,7 @@ using the ```Eigen3``` library.
 It implements various interfaces for KNN search:
 
 * pure ````Eigen3```` parallelized brute force search
-* pure ````Eigen3```` kdtree for search with Manhatten, Euclidean and Minkowski distances
+* pure ````Eigen3```` kdtree for efficient search with Manhatten, Euclidean and Minkowski distances
 * pure ````Eigen3```` multi.index hashing search with Hamming distance
 * kdtree wrapper for ```FLANN``` with ````Eigen3```` matrices
 
@@ -49,10 +49,10 @@ Here is a basic example on how to build a kdtree and query it.
 
 ```cpp
 #include <iostream>
-#include <knn/kdtree_minkowski.h>
+#include <knncpp.h>
 
 typedef Eigen::MatrixXd Matrix;
-typedef knn::Matrixi Matrixi;
+typedef knncpp::Matrixi Matrixi;
 
 int main()
 {
@@ -70,7 +70,7 @@ int main()
     // The distance type is defined by the second template parameter.
     // Currently ManhattenDistance, EuclideanDistance, ChebyshevDistance and
     // MinkowskiDistance are available.
-    knn::KDTreeMinkowski<double, knn::EuclideanDistance<double>> kdtree(dataPoints);
+    knncpp::KDTreeMinkowski<double, knncpp::EuclideanDistance<double>> kdtree(dataPoints);
 
     // Set the bucket size for each leaf node in the tree. The higher the value
     // the less leafs have to be visited to find the nearest neighbors. The

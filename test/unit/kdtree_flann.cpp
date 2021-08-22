@@ -4,18 +4,20 @@
  * Created On: 08 Nov 2018
  */
 
+#ifdef KNNCPP_FLANN
+
 #include <catch2/catch.hpp>
-#include <knn/kdtree_flann.h>
+#include <knncpp.h>
 
 typedef double Scalar;
 typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
-typedef typename knn::KDTreeFlann<Scalar>::Matrixi Matrixi;
+typedef typename knncpp::KDTreeFlann<Scalar>::Matrixi Matrixi;
 
 TEST_CASE("kdtree_flann")
 {
     SECTION("query one")
     {
-        knn::KDTreeFlann<Scalar> kdtree;
+        knncpp::KDTreeFlann<Scalar> kdtree;
         Matrix data(3, 4);
         data << 1, 3, 0, 4,
             0, 1, 2, 3,
@@ -41,13 +43,13 @@ TEST_CASE("kdtree_flann")
 
     SECTION("build no data")
     {
-        knn::KDTreeFlann<Scalar> kdtree;
+        knncpp::KDTreeFlann<Scalar> kdtree;
         REQUIRE_THROWS(kdtree.build());
     }
 
     SECTION("build empty")
     {
-        knn::KDTreeFlann<Scalar> kdtree;
+        knncpp::KDTreeFlann<Scalar> kdtree;
         Matrix data(3, 0);
 
         kdtree.setData(data);
@@ -57,7 +59,7 @@ TEST_CASE("kdtree_flann")
 
     SECTION("query all")
     {
-        knn::KDTreeFlann<Scalar> kdtree;
+        knncpp::KDTreeFlann<Scalar> kdtree;
         Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 3,
                 2, 1, 0, 3, 2, 1, 0, 3, 0,
@@ -86,7 +88,7 @@ TEST_CASE("kdtree_flann")
 
     SECTION("query maximum distance")
     {
-        knn::KDTreeFlann<Scalar> kdtree;
+        knncpp::KDTreeFlann<Scalar> kdtree;
         Matrix data(3, 4);
         data << 1, 3, 0, 5,
             0, 1, 3, 4,
@@ -115,3 +117,5 @@ TEST_CASE("kdtree_flann")
         REQUIRE(distances(1, 0) == -1.0);
     }
 }
+
+#endif

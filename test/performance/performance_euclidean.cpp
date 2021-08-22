@@ -4,9 +4,7 @@
  * Created On: 30 Jan 2019
  */
 
-#include <knn/brute_force.h>
-#include <knn/kdtree_minkowski.h>
-#include <knn/kdtree_flann.h>
+#include <knncpp.h>
 #include <string>
 #include <fstream>
 #include <sstream>
@@ -14,7 +12,7 @@
 #include <iostream>
 
 typedef double Scalar;
-typedef knn::Index Index;
+typedef knncpp::Index Index;
 typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 
 static void loadMatrix(const std::string &filename, Matrix &mat)
@@ -82,7 +80,7 @@ int main(int argc, char** argv)
     std::cout << "Matrix (" << mat.rows() << "," << mat.cols() << ")" << std::endl;
     std:: cout << mat.block(0, 0, 3, 10) << std::endl;
 
-    // knn::BruteForce<Scalar, knn::EuclideanDistance<Scalar>> bf(mat);
+    // knncpp::BruteForce<Scalar, knncpp::EuclideanDistance<Scalar>> bf(mat);
     // bf.setSorted(true);
     // bf.setMaxDistance(0.5);
     // bf.setThreads(0);
@@ -91,7 +89,7 @@ int main(int argc, char** argv)
     // std::cout << "BruteForce" << std::endl;
     // testPerformance(bf, mat);
 
-    knn::KDTreeMinkowski<Scalar, knn::EuclideanDistance<Scalar>> kdtree(mat);
+    knncpp::KDTreeMinkowski<Scalar, knncpp::EuclideanDistance<Scalar>> kdtree(mat);
     kdtree.setSorted(true);
     kdtree.setBalanced(false);
     kdtree.setCompact(true);
@@ -103,7 +101,7 @@ int main(int argc, char** argv)
     std::cout << "KDTreeMinkowski" << std::endl;
     testPerformance(kdtree, mat);
 
-    knn::KDTreeFlann<Scalar> kdtree2(mat);
+    knncpp::KDTreeFlann<Scalar> kdtree2(mat);
     kdtree2.setIndexParams(flann::KDTreeSingleIndexParams(16));
     kdtree2.setThreads(0);
     kdtree.setMaxDistance(0.5);

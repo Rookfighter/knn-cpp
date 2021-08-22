@@ -5,10 +5,10 @@
  */
 
 #include <iostream>
-#include <knn/kdtree_flann.h>
+#include <knncpp.h>
 
 typedef Eigen::MatrixXd Matrix;
-typedef typename knn::KDTreeFlann<double>::Matrixi Matrixi;
+typedef typename knncpp::KDTreeFlann<double>::Matrixi Matrixi;
 
 int main()
 {
@@ -25,7 +25,7 @@ int main()
     // You can also use the setData() method to set the data at a later point.
     // The distance type is defined by the second template parameter from FLANN
     // functors.
-    knn::KDTreeFlann<double, flann::L2_Simple<double>> kdtree(dataPoints);
+    knncpp::KDTreeFlann<double, flann::L2_Simple<double>> kdtree(dataPoints);
 
     // See the FLANN documentation for expalantion of the parameters.
     kdtree.setIndexParams(flann::KDTreeSingleIndexParams(15));

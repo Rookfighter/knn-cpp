@@ -5,10 +5,10 @@
  */
 
 #include <iostream>
-#include <knn/brute_force.h>
+#include <knncpp.h>
 
 typedef Eigen::MatrixXd Matrix;
-typedef knn::Matrixi Matrixi;
+typedef knncpp::Matrixi Matrixi;
 
 int main()
 {
@@ -26,7 +26,7 @@ int main()
     // The distance type is defined by the second template parameter.
     // Currently ManhattenDistance, EuclideanDistance, ChebyshevDistance,
     // MinkowskiDistance and HammingDistance are available.
-    knn::BruteForce<double, knn::EuclideanDistance<double>> bruteforce(dataPoints);
+    knncpp::BruteForce<double, knncpp::EuclideanDistance<double>> bruteforce(dataPoints);
 
     // Set if the resulting neighbors should be sorted in ascending order after
     // a successfull search.

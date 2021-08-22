@@ -4,18 +4,18 @@
  * Created On: 30 Oct 2019
  */
 
-#include <knn/multi_index_hashing.h>
+#include <knncpp.h>
 #include "assert/eigen_require.h"
 
 typedef uint32_t Scalar;
 typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
-typedef knn::Matrixi Matrixi;
+typedef knncpp::Matrixi Matrixi;
 
 TEST_CASE("multi_index_hashing")
 {
     SECTION("query one")
     {
-        knn::MultiIndexHashing<Scalar> mih;
+        knncpp::MultiIndexHashing<Scalar> mih;
         Matrix data(3, 4);
         data << 1, 3, 0, 5,
                 0, 1, 3, 4,
@@ -41,7 +41,7 @@ TEST_CASE("multi_index_hashing")
 
     SECTION("query multiple")
     {
-        knn::MultiIndexHashing<Scalar> mih;
+        knncpp::MultiIndexHashing<Scalar> mih;
         Matrix data(3, 9);
         data << 3, 2, 3, 1, 2, 3, 3, 2, 0,
                 2, 1, 0, 3, 2, 1, 0, 3, 1,
@@ -72,7 +72,7 @@ TEST_CASE("multi_index_hashing")
 
     SECTION("query max distance")
     {
-        knn::MultiIndexHashing<Scalar> mih;
+        knncpp::MultiIndexHashing<Scalar> mih;
         Matrix data(3, 9);
         data << 3, 2, 3, 1, 2, 3, 3, 2, 0,
                 2, 1, 0, 3, 2, 1, 0, 3, 1,

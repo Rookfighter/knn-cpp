@@ -1,37 +1,69 @@
-/* brute_force.cpp
+/* kdtree_eigen.cpp
  *
  *     Author: Fabian Meyer
  * Created On: 08 Nov 2018
  */
 
-#include <knn/brute_force.h>
+#include <knncpp.h>
 #include "assert/eigen_require.h"
 
 typedef double Scalar;
 typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
-typedef knn::Matrixi Matrixi;
+typedef knncpp::Matrixi Matrixi;
 
-TEST_CASE("brute_force")
+TEST_CASE("kdtree_minkowski")
 {
+    SECTION("build unbalanced")
+    {
+        knncpp::KDTreeMinkowski<Scalar> kdtree;
+        Matrix data(3, 4);
+        data << 1, 3, 0, 1,
+            0, 1, 2, 0,
+            3, 2, 0, 1;
+        kdtree.setBucketSize(2);
+        kdtree.setData(data);
+        kdtree.build();
+
+        REQUIRE(kdtree.size() == 4);
+        REQUIRE(kdtree.depth() == 3);
+    }
+
+    SECTION("build no data")
+    {
+        knncpp::KDTreeMinkowski<Scalar> kdtree;
+        REQUIRE_THROWS(kdtree.build());
+    }
+
+    SECTION("build empty")
+    {
+        knncpp::KDTreeMinkowski<Scalar> kdtree;
+        Matrix data(3, 0);
+
+        kdtree.setData(data);
+        REQUIRE(kdtree.size() == 0);
+        REQUIRE_THROWS(kdtree.build());
+    }
+
     SECTION("query one")
     {
-        knn::BruteForce<Scalar, knn::EuclideanDistance<Scalar>> bruteforce;
+        knncpp::KDTreeMinkowski<Scalar> kdtree;
         Matrix data(3, 4);
         data << 1, 3, 0, 5,
             0, 1, 2, 4,
             3, 2, 0, 3;
 
-        bruteforce.setData(data);
-        bruteforce.build();
+        kdtree.setBucketSize(2);
+        kdtree.setData(data);
+        kdtree.build();
 
-        REQUIRE(bruteforce.size() == 4);
+        REQUIRE(kdtree.size() == 4);
 
         Matrix points(3, 1);
         points << 0, 1, 0;
         Matrixi indices;
         Matrix distances;
 
-        bruteforce.query(points, 1, indices, distances);
+        kdtree.query(points, 1, indices, distances);
 
         REQUIRE(indices.size() == 1);
         REQUIRE(indices(0) == 2);
@@ -41,17 +73,18 @@ TEST_CASE("brute_force")
 
     SECTION("euclidean query multiple")
     {
-        knn::BruteForce<Scalar, knn::EuclideanDistance<Scalar>> bruteforce;
+        knncpp::KDTreeMinkowski<Scalar, knncpp::EuclideanDistance<Scalar>> kdtree;
 
         Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 1,
                 2, 1, 0, 3, 2, 1, 0, 3, 1,
                 3, 1, 3, 1, 3, 4, 4, 2, 1;
 
-        bruteforce.setData(data);
-        bruteforce.build();
+        kdtree.setBucketSize(2);
+        kdtree.setData(data);
+        kdtree.build();
 
-        REQUIRE(bruteforce.size() == 9);
+        REQUIRE(kdtree.size() == 9);
 
         Matrix points(3, 1);
         points << 0, 1, 0;
@@ -63,7 +96,7 @@ TEST_CASE("brute_force")
 
         Matrixi indices;
         Matrix distances;
-        bruteforce.query(points, 3, indices, distances);
+        kdtree.query(points, 3, indices, distances);
 
         REQUIRE(indices.size() == 3);
         REQUIRE(distances.size() == 3);
@@ -73,17 +106,18 @@ TEST_CASE("brute_force")
 
     SECTION("manhatten query multiple")
     {
-        knn::BruteForce<Scalar, knn::ManhattenDistance<Scalar>> bruteforce;
+        knncpp::KDTreeMinkowski<Scalar, knncpp::ManhattenDistance<Scalar>> kdtree;
 
         Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 3,
                 2, 1, 0, 3, 2, 1, 0, 3, 4,
                 3, 1, 3, 1, 3, 4, 4, 2, 1;
 
-        bruteforce.setData(data);
-        bruteforce.build();
+        kdtree.setBucketSize(2);
+        kdtree.setData(data);
+        kdtree.build();
 
-        REQUIRE(bruteforce.size() == 9);
+        REQUIRE(kdtree.size() == 9);
 
         Matrix points(3, 1);
         points << 0, 1, 0;
@@ -95,7 +129,7 @@ TEST_CASE("brute_force")
 
         Matrixi indices;
         Matrix distances;
-        bruteforce.query(points, 3, indices, distances);
+        kdtree.query(points, 3, indices, distances);
 
         REQUIRE(indices.size() == 3);
         REQUIRE(distances.size() == 3);
@@ -105,17 +139,18 @@ TEST_CASE("brute_force")
 
     SECTION("minkowski query multiple")
     {
-        knn::BruteForce<Scalar, knn::MinkowskiDistance<Scalar, 2>> bruteforce;
+        knncpp::KDTreeMinkowski<Scalar, knncpp::MinkowskiDistance<Scalar, 2>> kdtree;
 
         Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 1,
                 2, 1, 0, 3, 2, 1, 0, 3, 1,
                 3, 1, 3, 1, 3, 4, 4, 2, 1;
 
-        bruteforce.setData(data);
-        bruteforce.build();
+        kdtree.setBucketSize(2);
+        kdtree.setData(data);
+        kdtree.build();
 
-        REQUIRE(bruteforce.size() == 9);
+        REQUIRE(kdtree.size() == 9);
 
         Matrix points(3, 1);
         points << 0, 1, 0;
@@ -127,7 +162,7 @@ TEST_CASE("brute_force")
 
         Matrixi indices;
         Matrix distances;
-        bruteforce.query(points, 3, indices, distances);
+        kdtree.query(points, 3, indices, distances);
 
         REQUIRE(indices.size() == 3);
         REQUIRE(distances.size() == 3);
@@ -137,17 +172,18 @@ TEST_CASE("brute_force")
 
     SECTION("chebyshev query multiple")
     {
-        knn::BruteForce<Scalar, knn::ChebyshevDistance<Scalar>> bruteforce;
+        knncpp::KDTreeMinkowski<Scalar, knncpp::ChebyshevDistance<Scalar>> kdtree;
 
         Matrix data(3, 9);
         data << 1, 2, 4, 4, 4, 1, 1, 5, 3,
                 2, 1, 0, 3, 2, 1, 0, 3, 4,
                 3, 1, 3, 1, 3, 0, 4, 2, 6;
 
-        bruteforce.setData(data);
-        bruteforce.build();
+        kdtree.setBucketSize(2);
+        kdtree.setData(data);
+        kdtree.build();
 
-        REQUIRE(bruteforce.size() == 9);
+        REQUIRE(kdtree.size() == 9);
 
         Matrix points(3, 1);
         points << 0, 1, 0;
@@ -159,7 +195,7 @@ TEST_CASE("brute_force")
 
         Matrixi indices;
         Matrix distances;
-        bruteforce.query(points, 3, indices, distances);
+        kdtree.query(points, 3, indices, distances);
 
         REQUIRE(indices.size() == 3);
         REQUIRE(distances.size() == 3);
@@ -169,7 +205,7 @@ TEST_CASE("brute_force")
 
     SECTION("query many")
     {
-        knn::BruteForce<Scalar, knn::EuclideanDistance<Scalar>> bruteforce;
+        knncpp::KDTreeMinkowski<Scalar> kdtree;
         Matrix dataPts(3, 50);
         dataPts << -22.58, -80.33, 42.48, -10.11, -87.03, -40.01, -9.88, 98.56,
             -43.11, -49.37, 1.31, -55.78, -89.13, 54.78, -84.68, 67.34, 17.49,
@@ -194,8 +230,8 @@ TEST_CASE("brute_force")
             42.52, 81.1, 24.44, -5.45, -26.54,
             3.92, -80.29, -45.93, 53.99, 41.71;
 
-        size_t knn = 10;
-        Matrixi indicesExp(knn, queryPts.cols());
+        size_t knncpp = 10;
+        Matrixi indicesExp(knncpp, queryPts.cols());
         indicesExp << 45, 18, 23, 26, 19,
             35, 28, 35, 42, 9,
             49, 27, 46, 49, 29,
@@ -207,7 +243,7 @@ TEST_CASE("brute_force")
             26, 25, 49, 22, 8,
             36, 17, 27, 39, 47;
 
-        Matrix distsExp(knn, queryPts.cols());
+        Matrix distsExp(knncpp, queryPts.cols());
         distsExp << 29.5291042871, 39.981545743, 28.7389126447, 52.1982317708,
             32.6827936382,
             32.3591934387, 51.4356218977, 30.8089678503, 52.4485242881,
@@ -229,20 +265,67 @@ TEST_CASE("brute_force")
             72.9507409147, 95.5904283911, 58.393198234, 89.3475785906,
             57.1903505847;
 
-        bruteforce.setData(dataPts);
-        bruteforce.build();
+        SECTION("default")
+        {
+            kdtree.setData(dataPts);
+            kdtree.build();
 
-        Matrixi indicesAct;
-        Matrix distsAct;
-        bruteforce.query(queryPts, knn, indicesAct, distsAct);
+            Matrixi indicesAct;
+            Matrix distsAct;
+            kdtree.query(queryPts, knncpp, indicesAct, distsAct);
 
-        REQUIRE_MATRIX(indicesExp, indicesAct);
-        REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
+            REQUIRE_MATRIX(indicesExp, indicesAct);
+            REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
+        }
+
+        SECTION("low bucket size")
+        {
+            kdtree.setBucketSize(2);
+            kdtree.setData(dataPts);
+            kdtree.build();
+
+            Matrixi indicesAct;
+            Matrix distsAct;
+            kdtree.query(queryPts, knncpp, indicesAct, distsAct);
+
+            REQUIRE_MATRIX(indicesExp, indicesAct);
+            REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
+        }
+
+        SECTION("balanced")
+        {
+            kdtree.setBucketSize(2);
+            kdtree.setBalanced(true);
+            kdtree.setData(dataPts);
+            kdtree.build();
+
+            Matrixi indicesAct;
+            Matrix distsAct;
+            kdtree.query(queryPts, knncpp, indicesAct, distsAct);
+
+            REQUIRE_MATRIX(indicesExp, indicesAct);
+            REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
+        }
+
+        SECTION("non-compact")
+        {
+            kdtree.setBucketSize(2);
+            kdtree.setCompact(false);
+            kdtree.setData(dataPts);
+            kdtree.build();
+
+            Matrixi indicesAct;
+            Matrix distsAct;
+            kdtree.query(queryPts, knncpp, indicesAct, distsAct);
+
+            REQUIRE_MATRIX(indicesExp, indicesAct);
+            REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
+        }
     }
 
     SECTION("query maximum distance")
     {
-        knn::BruteForce<Scalar, knn::EuclideanDistance<Scalar>> bruteforce;
+        knncpp::KDTreeMinkowski<Scalar> kdtree;
         Matrix dataPts(3, 50);
         dataPts << 99.88, -19.59, -74.16, 86.5, 47.21, -72.68, -1.97, -54.12,
             -9.22, 79.25, 94.14, 44.77, -34.63, 52.89, -91.08, -34.02, 1.02,
@@ -267,8 +350,8 @@ TEST_CASE("brute_force")
             87.31, -50.46, -71.72, 48.48, -13.82,
             10.3, -96.74, 72.87, -19.65, 70.21;
 
-        size_t knn = 10;
-        Matrixi indicesExp(knn, queryPts.cols());
+        size_t knncpp = 10;
+        Matrixi indicesExp(knncpp, queryPts.cols());
         indicesExp << 11, 14, 2, 12, 18,
             9, 33, 24, 7, 34,
             46, 25, 27, 5, 35,
@@ -280,7 +363,7 @@ TEST_CASE("brute_force")
             -1, -1, -1, -1, 20,
             -1, -1, -1, -1, 17;
 
-        Matrix distsExp(knn, queryPts.cols());
+        Matrix distsExp(knncpp, queryPts.cols());
         distsExp << 21.3393837774, 34.9847366719, 31.7369358949, 37.147648647,
         26.8530426581,
             33.4885204212, 43.9129923827, 40.769660288, 38.9524273955,
@@ -296,15 +379,63 @@ TEST_CASE("brute_force")
             -1, -1, -1, -1, 64.5714371839,
             -1, -1, -1, -1, 70.4561466446;
 
-        bruteforce.setMaxDistance(75.0 * 75.0);
-        bruteforce.setData(dataPts);
-        bruteforce.build();
+        kdtree.setMaxDistance(75.0 * 75.0);
 
-        Matrixi indicesAct;
-        Matrix distsAct;
-        bruteforce.query(queryPts, knn, indicesAct, distsAct);
+        SECTION("default")
+        {
+            kdtree.setData(dataPts);
+            kdtree.build();
 
-        REQUIRE_MATRIX(indicesExp, indicesAct);
-        REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
+            Matrixi indicesAct;
+            Matrix distsAct;
+            kdtree.query(queryPts, knncpp, indicesAct, distsAct);
+
+            REQUIRE_MATRIX(indicesExp, indicesAct);
+            REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
+        }
+
+        SECTION("low bucket size")
+        {
+            kdtree.setBucketSize(2);
+            kdtree.setData(dataPts);
+            kdtree.build();
+
+            Matrixi indicesAct;
+            Matrix distsAct;
+            kdtree.query(queryPts, knncpp, indicesAct, distsAct);
+
+            REQUIRE_MATRIX(indicesExp, indicesAct);
+            REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
+        }
+
+        SECTION("balanced")
+        {
+            kdtree.setBucketSize(2);
+            kdtree.setBalanced(true);
+            kdtree.setData(dataPts);
+            kdtree.build();
+
+            Matrixi indicesAct;
+            Matrix distsAct;
+            kdtree.query(queryPts, knncpp, indicesAct, distsAct);
+
+            REQUIRE_MATRIX(indicesExp, indicesAct);
+            REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
+        }
+
+        SECTION("non-compact")
+        {
+            kdtree.setBucketSize(2);
+            kdtree.setCompact(false);
+            kdtree.setData(dataPts);
+            kdtree.build();
+
+            Matrixi indicesAct;
+            Matrix distsAct;
+            kdtree.query(queryPts, knncpp, indicesAct, distsAct);
+
+            REQUIRE_MATRIX(indicesExp, indicesAct);
+            REQUIRE_MATRIX_APPROX(distsExp, distsAct, 1e-3);
+        }
     }
 }

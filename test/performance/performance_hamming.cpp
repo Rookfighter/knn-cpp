@@ -4,8 +4,7 @@
  * Created On: 30 Jan 2019
  */
 
-#include <knn/brute_force.h>
-#include <knn/multi_index_hashing.h>
+#include <knncpp.h>
 #include <string>
 #include <fstream>
 #include <sstream>
@@ -13,7 +12,7 @@
 #include <iostream>
 
 typedef int32_t Scalar;
-typedef knn::Index Index;
+typedef knncpp::Index Index;
 typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 
 static void loadMatrix(const std::string &filename, Matrix &mat)
@@ -82,7 +81,7 @@ int main(int argc, char** argv)
     std:: cout << mat.block(0, 0, 3, 10) << std::endl;
 
     std::cout << "BruteForce" << std::endl;
-    knn::BruteForce<Scalar, knn::HammingDistance<Scalar>> bf(mat);
+    knncpp::BruteForce<Scalar, knncpp::HammingDistance<Scalar>> bf(mat);
     bf.setSorted(true);
     bf.setMaxDistance(120);
     bf.setThreads(0);
@@ -90,7 +89,7 @@ int main(int argc, char** argv)
     testPerformance(bf, mat);
 
     std::cout << "MultiIndexHashing" << std::endl;
-    knn::MultiIndexHashing<Scalar> mih(mat);
+    knncpp::MultiIndexHashing<Scalar> mih(mat);
     mih.setSorted(true);
     mih.setMaxDistance(120);
     mih.setThreads(0);
