@@ -585,6 +585,15 @@ namespace knncpp
         }
     };
 
+    // template<typename Scalar>
+    // struct MeanMidpointRule
+    // {
+    //     typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
+    //     typedef knncpp::Matrixi Matrixi;
+
+    //     void operator(const Matrix &data, const Matrixi &indices, Index split)
+    // };
+
     /** Class for performing k nearest neighbour searches with minkowski distances.
       * This kdtree only works reliably with the minkowski distance and its
       * special cases like manhatten or euclidean distance.
@@ -598,38 +607,43 @@ namespace knncpp
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
         typedef knncpp::Matrixi Matrixi;
     private:
+
+        struct Bounds
+        {
+            Scalar lower;
+            Scalar upper;
+        };
+
+        typedef std::vector<Bounds> BoundingBox;
+
         /** Struct representing a node in the KDTree.
           * It can be either a inner node or a leaf node. */
         struct Node
         {
             /** Indices of data points in this leaf node. */
-            Index startIdx;
-            Index length;
+            Index startIdx = 0;
+            Index length = 0;
 
             /** Left child of this inner node. */
-            Index left;
+            Index left = -1;
             /** Right child of this inner node. */
-            Index right;
+            Index right = -1;
             /** Axis of the axis aligned splitting hyper plane. */
-            Index splitaxis;
+            Index splitaxis = -1;
             /** Translation of the axis aligned splitting hyper plane. */
-            Scalar splitpoint;
+            Scalar splitpoint = 0;
 
-            Node()
-                : startIdx(0), length(0), left(-1), right(-1),
-                splitaxis(-1), splitpoint(0)
-            { }
+            Node() = default;
 
             /** Constructor for leaf nodes */
             Node(const Index startIdx, const Index length)
-                : startIdx(startIdx), length(length), left(-1), right(-1),
-                splitaxis(-1), splitpoint(0)
+                : startIdx(startIdx), length(length)
             { }
 
             /** Constructor for inner nodes */
             Node(const Index splitaxis, const Scalar splitpoint,
                 const Index left, const Index right)
-                : startIdx(0), length(0), left(left), right(right),
+                : left(left), right(right),
                 splitaxis(splitaxis), splitpoint(splitpoint)
             { }
 
@@ -670,12 +684,52 @@ namespace knncpp
         Distance distance_;
 
         /** Finds the minimum and maximum values of each dimension (row) in the
-         *  data matrix. Only respects the columns specified by the index
-         *  vector. */
-        void findDataMinMax(const Index startIdx,
+          * data matrix. Only respects the columns specified by the index
+          * vector.
+          * @param startIdx starting index within indices data structure to search for bounding box
+          * @param length length of the block of indices*/
+        void calculateBoundingBox(const Index startIdx,
             const Index length,
-            Vector &mins,
-            Vector &maxes) const
+            BoundingBox &bbox) const
+        {
+            assert(length > 0);
+            assert(startIdx >= 0);
+            assert(static_cast<size_t>(startIdx + length) <= indices_.size());
+            assert(static_cast<size_t>(data_->rows()) == bbox.size());
+
+            const Matrix &data = *data_;
+
+            // initialize bounds of the bounding box
+            Index first = indices_[startIdx];
+            for(size_t i = 0; i < bbox.size(); ++i)
+            {
+                bbox[i].lower = data(i, first);
+                bbox[i].upper = data(i, first);
+            }
+
+            // search for min / max values in data
+            for(Index i = 1; i < length; ++i)
+            {
+                // retrieve data index
+                Index col = indices_[startIdx + i];
+                assert(col >= 0 && col < data.cols());
+
+                // check min and max for each dimension individually
+                for(Index j = 0; j < data.rows(); ++j)
+                {
+                    if(bbox[j].lower > data(j, col))
+                        bbox[j].lower = data(j, col);
+                    if(bbox[j].upper < data(j, col))
+                        bbox[j].upper = data(j, col);
+                }
+            }
+        }
+
+        /** Calculates the bounds (min / max values) for the given dimension and block of data. */
+        void calculateBounds(const Index startIdx,
+            const Index length,
+            const Index dim,
+            Bounds &bounds) const
         {
             assert(length > 0);
             assert(startIdx >= 0);
@@ -683,219 +737,204 @@ namespace knncpp
 
             const Matrix &data = *data_;
 
-            // initialize mins and maxes with first element of currIndices
-            mins = data.col(indices_[startIdx]);
-            maxes = mins;
-            // search for min / max values in data
-            for(Index i = 0; i < length; ++i)
+            bounds.lower = data(dim, indices_[startIdx]);
+            bounds.upper = data(dim, indices_[startIdx]);
+
+            for(Index i = 1; i < length; ++i)
             {
-                // retrieve data index
                 Index col = indices_[startIdx + i];
                 assert(col >= 0 && col < data.cols());
-                // check min and max for each dimension individually
-                for(Index j = 0; j < data.rows(); ++j)
+
+                if(bounds.lower > data(dim, col))
+                    bounds.lower = data(dim, col);
+                if(bounds.upper < data(dim, col))
+                    bounds.upper = data(dim, col);
+            }
+        }
+
+        void calculateSplittingMidpoint(const Index startIdx,
+            const Index length,
+            const BoundingBox &bbox,
+            Index &splitaxis,
+            Scalar &splitpoint,
+            Index &splitoffset)
+        {
+            const Matrix &data = *data_;
+
+            // search for axis with longest distance
+            splitaxis = 0;
+            Scalar splitsize = static_cast<Scalar>(0);
+            for(Index i = 0; i < data.rows(); ++i)
+            {
+                Scalar diff = bbox[i].upper - bbox[i].lower;
+                if(diff > splitsize)
                 {
-                    Scalar val = data(j, col);
-                    mins(j) = val < mins(j) ? val : mins(j);
-                    maxes(j) = val > maxes(j) ? val : maxes(j);
+                    splitaxis = static_cast<Index>(i);
+                    splitsize = diff;
                 }
             }
+
+            // calculate the bounds in this axis and update our data
+            // accordingly
+            Bounds bounds;
+            calculateBounds(startIdx, length, splitaxis, bounds);
+            splitsize = bounds.upper - bounds.lower;
+
+            const Index origSplitaxis = splitaxis;
+            for(Index i = 0; i < data.rows(); ++i)
+            {
+                // skip the dimension of the previously found splitaxis
+                if(i == origSplitaxis)
+                    continue;
+                Scalar diff = bbox[i].upper - bbox[i].lower;
+                // check if the split for this dimension would be potentially larger
+                if(diff > splitsize)
+                {
+                    // update the bounds to their actual current value
+                    calculateBounds(startIdx, length, splitaxis, bounds);
+                    diff = bounds.upper - bounds.lower;
+                    if(diff > splitsize)
+                    {
+                        splitaxis = i;
+                        splitsize = diff;
+                    }
+                }
+            }
+
+            // use the sliding midpoint rule
+            splitpoint = (bounds.lower + bounds.upper) / static_cast<Scalar>(2);
+
+            Index leftIdx = startIdx;
+            Index rightIdx = startIdx + length - 1;
+
+            // first loop checks left < splitpoint and right >= splitpoint
+            while(leftIdx <= rightIdx)
+            {
+                // increment left as long as left has not reached right and
+                // the value of the left element is less than the splitpoint
+                while(leftIdx <= rightIdx && data(splitaxis, indices_[leftIdx]) < splitpoint)
+                    ++leftIdx;
+
+                // decrement right as long as left has not reached right and
+                // the value of the right element is greater than the splitpoint
+                while(leftIdx <= rightIdx && data(splitaxis, indices_[rightIdx]) >= splitpoint)
+                    --rightIdx;
+
+                if(leftIdx <= rightIdx)
+                {
+                    std::swap(indices_[leftIdx], indices_[rightIdx]);
+                    ++leftIdx;
+                    --rightIdx;
+                }
+            }
+
+            // remember this offset from starting index
+            const Index offset1 = leftIdx - startIdx;
+
+            rightIdx = startIdx + length - 1;
+            // second loop checks left <= splitpoint and right > splitpoint
+            while(leftIdx <= rightIdx)
+            {
+                // increment left as long as left has not reached right and
+                // the value of the left element is less than the splitpoint
+                while(leftIdx <= rightIdx && data(splitaxis, indices_[leftIdx]) <= splitpoint)
+                    ++leftIdx;
+
+                // decrement right as long as left has not reached right and
+                // the value of the right element is greater than the splitpoint
+                while(leftIdx <= rightIdx && data(splitaxis, indices_[rightIdx]) > splitpoint)
+                    --rightIdx;
+
+                if(leftIdx <= rightIdx)
+                {
+                    std::swap(indices_[leftIdx], indices_[rightIdx]);
+                    ++leftIdx;
+                    --rightIdx;
+                }
+            }
+
+            // remember this offset from starting index
+            const Index offset2 = leftIdx - startIdx;
+
+            const Index halfLength = length / static_cast<Index>(2);
+
+
+            // offset1 contains all objects which are less than the splitpoint
+            if (offset1 > halfLength)
+                splitoffset = offset1;
+            // offset2 contains also objects which are equal the splitpoint
+            else if (offset2 < halfLength)
+                splitoffset = offset2;
+            else
+                splitoffset = halfLength;
         }
 
         Index buildInnerNode(const Index startIdx,
             const Index length,
-            const Vector &mins,
-            const Vector &maxes)
+            const BoundingBox &bbox)
         {
-            assert(startIdx >= 0);
             assert(length > 0);
+            assert(startIdx >= 0);
             assert(static_cast<size_t>(startIdx  + length) <= indices_.size());
-            assert(maxes.size() == mins.size());
-
-            const Matrix &data = *data_;
+            assert(static_cast<size_t>(data_->rows()) == bbox.size());
 
             // create node
-            Index nodeIdx = nodes_.size();
+            const Index nodeIdx = nodes_.size();
             nodes_.push_back(Node());
 
-            // search for axis with longest distance
-            Index splitaxis = 0;
-            Scalar splitsize = 0;
-            for(Index i = 0; i < maxes.size(); ++i)
-            {
-                Scalar diff = maxes(i) - mins(i);
-                if(diff > splitsize)
-                {
-                    splitaxis = i;
-                    splitsize = diff;
-                }
-            }
-            // retrieve the corresponding values
-            Scalar minval = mins(splitaxis);
-            Scalar maxval = maxes(splitaxis);
-            // check if min and max are the same
-            // this basically means that all data points are the same
-            if(minval == maxval)
-            {
-                nodes_[nodeIdx] = Node(startIdx, length);
-                return nodeIdx;
-            }
-
-            // determine split point
+            Index splitaxis;
+            Index splitoffset;
             Scalar splitpoint;
-            // check if tree should be balanced
-            if(balanced_)
-            {
-                // use median for splitpoint
-                auto compPred =
-                    [&data, splitaxis](const Index lhs, const Index rhs)
-                    { return data(splitaxis, lhs) < data(splitaxis, rhs); };
-                std::sort(indices_.begin() + startIdx,
-                    indices_.begin() + startIdx + length,
-                    compPred);
+            calculateSplittingMidpoint(startIdx, length, bbox, splitaxis, splitpoint, splitoffset);
 
-                Index idx = indices_[startIdx + length / 2];
-                splitpoint = data(splitaxis, idx);
-            }
-            else
-            {
-                // use sliding midpoint rule
-                splitpoint = (minval + maxval) / 2;
-            }
+            nodes_[nodeIdx].splitaxis = splitaxis;
+            nodes_[nodeIdx].splitpoint = splitpoint;
 
-            Index leftIdx = startIdx;
-            Index rightIdx = startIdx + length - 1;
-            while(leftIdx <= rightIdx)
-            {
-                Scalar leftVal = data(splitaxis, indices_[leftIdx]);
-                Scalar rightVal = data(splitaxis, indices_[rightIdx]);
-
-                if(leftVal < splitpoint)
-                {
-                    // left value is less than split point
-                    // keep it on left side
-                    ++leftIdx;
-                }
-                else if(rightVal >= splitpoint)
-                {
-                    // right value is greater than split point
-                    // keep it on right side
-                    --rightIdx;
-                }
-                else
-                {
-                    // right value is less than splitpoint and left value is
-                    // greater than split point
-                    // simply swap sides
-                    Index tmpIdx = indices_[leftIdx];
-                    indices_[leftIdx] = indices_[rightIdx];
-                    indices_[rightIdx] = tmpIdx;
-                    ++leftIdx;
-                    --rightIdx;
-                }
-            }
-
-            if(leftIdx == startIdx)
-            {
-                // no values on left side, resolve trivial split
-                // find value with minimum distance to splitpoint
-                Index minIdx = startIdx;
-                splitpoint = data(splitaxis, indices_[minIdx]);
-                for(Index i = 0; i < length; ++i)
-                {
-                    Index idx = startIdx + i;
-                    Scalar val = data(splitaxis, indices_[idx]);
-                    if(val < splitpoint)
-                    {
-                        minIdx = idx;
-                        splitpoint = val;
-                    }
-                }
-                // put value with minimum distance on the left
-                // this way there is exactly one value on the left
-                Index tmpIdx = indices_[startIdx];
-                indices_[startIdx] = indices_[minIdx];
-                indices_[minIdx] = tmpIdx;
-                leftIdx = startIdx + 1;
-                rightIdx = startIdx;
-            }
-            else if(leftIdx == startIdx + length)
-            {
-                // no values on right side, resolve trivial split
-                // find value with maximum distance to splitpoint
-                Index maxIdx = startIdx + length - 1;
-                splitpoint = data(splitaxis, indices_[maxIdx]);
-                for(Index i = 0; i < length; ++i)
-                {
-                    Index idx = startIdx + i;
-                    Scalar val = data(splitaxis, indices_[idx]);
-                    if(val > splitpoint)
-                    {
-                        maxIdx = idx;
-                        splitpoint = val;
-                    }
-                }
-                // put value with maximum distance on the right
-                // this way there is exactly one value on the right
-                Index tmpIdx = indices_[startIdx + length - 1];
-                indices_[startIdx + length - 1] = indices_[maxIdx];
-                indices_[maxIdx] = tmpIdx;
-                leftIdx = startIdx + length - 1;
-                rightIdx = startIdx + length - 2;
-            }
-
-            Index leftNode = -1;
-            Index rightNode = -1;
-
-            Index leftStart = startIdx;
-            Index rightStart = leftIdx;
-            Index leftLength = leftIdx - startIdx;
-            Index rightLength = length - leftLength;
+            const Index leftStart = startIdx;
+            const Index leftLength = splitoffset;
+            const Index rightStart = startIdx + splitoffset;
+            const Index rightLength = length - leftLength;
+            BoundingBox bboxChild(bbox.size());
 
             if(compact_)
             {
-                // recompute mins and maxes to make the tree more compact
-                Vector minsN, maxesN;
-                findDataMinMax(leftStart, leftLength, minsN, maxesN);
-                leftNode = buildR(leftStart, leftLength, minsN, maxesN);
+                // recompute bounds to make the tree more compact
+                calculateBoundingBox(leftStart, leftLength, bboxChild);
+                nodes_[nodeIdx].left = buildR(leftStart, leftLength, bboxChild);
 
-                findDataMinMax(rightStart, rightLength, minsN, maxesN);
-                rightNode = buildR(rightStart, rightLength, minsN, maxesN);
+                calculateBoundingBox(rightStart, rightLength, bboxChild);
+                nodes_[nodeIdx].right = buildR(rightStart, rightLength, bboxChild);
             }
             else
             {
-                // just re-use mins and maxes, but set splitaxies to value of
-                // splitpoint
-                Vector mids(maxes.size());
-                for(Index i = 0; i < maxes.size(); ++i)
-                    mids(i) = maxes(i);
-                mids(splitaxis) = splitpoint;
+                // just re-use mins and maxes, but set splitaxes to value of splitpoint
+                std::copy(bbox.begin(), bbox.end(), bboxChild.begin());
+                bboxChild[splitaxis].upper = splitpoint;
 
-                leftNode = buildR(leftStart, leftLength, mins, mids);
+                nodes_[nodeIdx].left = buildR(leftStart, leftLength, bboxChild);
 
-                for(Index i = 0; i < mins.size(); ++i)
-                    mids(i) = mins(i);
-                mids(splitaxis) = splitpoint;
-                rightNode = buildR(rightStart, rightLength, mids, maxes);
+                bboxChild[splitaxis].upper = bbox[splitaxis].upper;
+                bboxChild[splitaxis].lower = splitpoint;
+                nodes_[nodeIdx].right = buildR(rightStart, rightLength, bboxChild);
             }
 
-            nodes_[nodeIdx] = Node(splitaxis, splitpoint, leftNode, rightNode);
             return nodeIdx;
         }
 
         Index buildR(const Index startIdx,
             const Index length,
-            const Vector &mins,
-            const Vector &maxes)
+            const BoundingBox &bbox)
         {
             // check for base case
             if(length <= bucketSize_)
             {
                 nodes_.push_back(Node(startIdx, length));
-                return nodes_.size() - 1;
+                return static_cast<Index>(nodes_.size() - 1);
             }
             else
-                return buildInnerNode(startIdx, length, mins, maxes);
+            {
+                return buildInnerNode(startIdx, length, bbox);
+            }
         }
 
         template<typename Derived>
@@ -1104,17 +1143,18 @@ namespace knncpp
 
             clear();
 
+            // initialize indices in simple sequence
             indices_.resize(data_->cols());
             for(size_t i = 0; i < indices_.size(); ++i)
                 indices_[i] = i;
 
-            Vector mins, maxes;
+            BoundingBox bbox(data_->rows());
             Index startIdx = 0;
             Index length = indices_.size();
 
-            findDataMinMax(startIdx, length, mins, maxes);
+            calculateBoundingBox(startIdx, length, bbox);
 
-            buildR(startIdx, length, mins, maxes);
+            buildR(startIdx, length, bbox);
         }
 
         /** Queries the tree for the nearest neighbours of the given query

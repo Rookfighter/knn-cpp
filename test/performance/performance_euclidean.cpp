@@ -92,7 +92,7 @@ int main(int argc, char** argv)
     knncpp::KDTreeMinkowski<Scalar, knncpp::EuclideanDistance<Scalar>> kdtree(mat);
     kdtree.setSorted(true);
     kdtree.setBalanced(false);
-    kdtree.setCompact(true);
+    kdtree.setCompact(false);
     kdtree.setMaxDistance(0.5);
     kdtree.setThreads(0);
     kdtree.setTakeRoot(false);
