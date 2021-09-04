@@ -668,20 +668,28 @@ namespace knncpp
             }
         };
 
-        Matrix dataCopy_;
-        const Matrix *data_;
-        std::vector<Index> indices_;
-        std::vector<Node> nodes_;
+        Matrix dataCopy_ = Matrix();
+        const Matrix *data_ = nullptr;
+        std::vector<Index> indices_ = std::vector<Index>();
+        std::vector<Node> nodes_ = std::vector<Node>();
 
-        Index bucketSize_;
-        bool sorted_;
-        bool compact_;
-        bool balanced_;
-        bool takeRoot_;
-        Index threads_;
-        Scalar maxDist_;
+        Index bucketSize_ = 16;
+        bool sorted_ = false;
+        bool compact_ = false;
+        bool balanced_ = false;
+        bool takeRoot_ = false;
+        Index threads_ = 0;
+        Scalar maxDist_ = 0;
 
-        Distance distance_;
+        Distance distance_ = Distance();
+
+        Index buildLeafNode(const Index startIdx,
+            const Index length,
+            const BoundingBox &)
+        {
+            nodes_.push_back(Node(startIdx, length));
+            return static_cast<Index>(nodes_.size() - 1);
+        }
 
         /** Finds the minimum and maximum values of each dimension (row) in the
           * data matrix. Only respects the columns specified by the index
@@ -893,7 +901,7 @@ namespace knncpp
             const Index leftStart = startIdx;
             const Index leftLength = splitoffset;
             const Index rightStart = startIdx + splitoffset;
-            const Index rightLength = length - leftLength;
+            const Index rightLength = length - splitoffset;
             BoundingBox bboxChild(bbox.size());
 
             if(compact_)
@@ -911,11 +919,14 @@ namespace knncpp
                 std::copy(bbox.begin(), bbox.end(), bboxChild.begin());
                 bboxChild[splitaxis].upper = splitpoint;
 
-                nodes_[nodeIdx].left = buildR(leftStart, leftLength, bboxChild);
+                Index left = buildR(leftStart, leftLength, bboxChild);
+                nodes_[nodeIdx].left =  left;
 
                 bboxChild[splitaxis].upper = bbox[splitaxis].upper;
                 bboxChild[splitaxis].lower = splitpoint;
-                nodes_[nodeIdx].right = buildR(rightStart, rightLength, bboxChild);
+
+                Index right = buildR(rightStart, rightLength, bboxChild);
+                nodes_[nodeIdx].right = right;
             }
 
             return nodeIdx;
@@ -927,14 +938,19 @@ namespace knncpp
         {
             // check for base case
             if(length <= bucketSize_)
-            {
-                nodes_.push_back(Node(startIdx, length));
-                return static_cast<Index>(nodes_.size() - 1);
-            }
+                return buildLeafNode(startIdx, length, bbox);
             else
-            {
                 return buildInnerNode(startIdx, length, bbox);
-            }
+        }
+
+        bool isDistanceInRange(const Scalar dist) const
+        {
+            return maxDist_ <= 0 || dist <= maxDist_;
+        }
+
+        bool isDistanceImprovement(const Scalar dist, const QueryHeap<Scalar> &dataHeap) const
+        {
+            return !dataHeap.full() || dist < dataHeap.front();
         }
 
         template<typename Derived>
@@ -949,20 +965,16 @@ namespace knncpp
             // go through all points in this leaf node and do brute force search
             for(Index i = 0; i < node.length; ++i)
             {
-                size_t idx = node.startIdx + i;
-                assert(idx < indices_.size());
+                Index idx = node.startIdx + i;
+                assert(idx >= 0 && idx < indices_.size());
 
                 // retrieve index of the current data point
                 Index dataIdx = indices_[idx];
                 Scalar dist = distance_(queryPoint, data.col(dataIdx));
 
-                // check if point is in range if max distance was set
-                bool isInRange = maxDist_ <= 0 || dist <= maxDist_;
-                // check if this node was an improvement if heap is already full
-                bool isImprovement = !dataHeap.full() ||
-                    dist < dataHeap.front();
-
-                if(isInRange && isImprovement)
+                // check if point is within max distance and if the value would be
+                // an improvement
+                if(isDistanceInRange(dist) && isDistanceImprovement(dist, dataHeap))
                 {
                     if(dataHeap.full())
                         dataHeap.pop();
@@ -991,12 +1003,8 @@ namespace knncpp
             Scalar splitdist = distance_(splitval, node.splitpoint);
 
             // check if node is in range if max distance was set
-            bool isInRange = maxDist_ <= 0 || splitdist <= maxDist_;
             // check if this node was an improvement if heap is already full
-            bool isImprovement = !dataHeap.full() ||
-                splitdist < dataHeap.front();
-
-            if(isInRange && isImprovement)
+            if(isDistanceInRange(splitdist) && isDistanceImprovement(splitdist, dataHeap))
             {
                 if(visitRight)
                     queryR(nodes_[node.left], queryPoint, dataHeap);
@@ -1032,9 +1040,6 @@ namespace knncpp
 
         /** Constructs an empty KDTree. */
         KDTreeMinkowski()
-            : dataCopy_(), data_(nullptr), indices_(), nodes_(),
-            bucketSize_(16), sorted_(true), compact_(true), balanced_(false),
-            takeRoot_(true), threads_(0), maxDist_(0), distance_()
         { }
 
         /** Constructs KDTree with the given data. This does not build the
@@ -1042,7 +1047,6 @@ namespace knncpp
           * @param data NxM matrix, M points of dimension N
           * @param copy if true copies the data, otherwise assumes static data */
         KDTreeMinkowski(const Matrix &data, const bool copy=false)
-            : KDTreeMinkowski()
         {
             setData(data, copy);
         }
@@ -1142,6 +1146,7 @@ namespace knncpp
                 throw std::runtime_error("cannot build KDTree; data is empty");
 
             clear();
+            nodes_.reserve((data_->cols() / bucketSize_) + 1);
 
             // initialize indices in simple sequence
             indices_.resize(data_->cols());
@@ -1150,7 +1155,7 @@ namespace knncpp
 
             BoundingBox bbox(data_->rows());
             Index startIdx = 0;
-            Index length = indices_.size();
+            Index length = data_->cols();
 
             calculateBoundingBox(startIdx, length, bbox);
 
