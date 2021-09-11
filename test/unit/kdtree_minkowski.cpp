@@ -15,7 +15,7 @@ TEST_CASE("kdtree_minkowski")
 {
     SECTION("build unbalanced")
     {
-        knncpp::KDTreeMinkowski<Scalar> kdtree;
+        knncpp::KDTreeMinkowskiX<Scalar> kdtree;
         Matrix data(3, 4);
         data << 1, 3, 0, 1,
             0, 1, 2, 0,
@@ -30,13 +30,13 @@ TEST_CASE("kdtree_minkowski")
 
     SECTION("build no data")
     {
-        knncpp::KDTreeMinkowski<Scalar> kdtree;
+        knncpp::KDTreeMinkowskiX<Scalar> kdtree;
         REQUIRE_THROWS(kdtree.build());
     }
 
     SECTION("build empty")
     {
-        knncpp::KDTreeMinkowski<Scalar> kdtree;
+        knncpp::KDTreeMinkowskiX<Scalar> kdtree;
         Matrix data(3, 0);
 
         kdtree.setData(data);
@@ -46,7 +46,7 @@ TEST_CASE("kdtree_minkowski")
 
     SECTION("query one")
     {
-        knncpp::KDTreeMinkowski<Scalar> kdtree;
+        knncpp::KDTreeMinkowskiX<Scalar> kdtree;
         Matrix data(3, 4);
         data << 1, 3, 0, 5,
             0, 1, 2, 4,
@@ -73,7 +73,7 @@ TEST_CASE("kdtree_minkowski")
 
     SECTION("euclidean query multiple")
     {
-        knncpp::KDTreeMinkowski<Scalar, knncpp::EuclideanDistance<Scalar>> kdtree;
+        knncpp::KDTreeMinkowskiX<Scalar, knncpp::EuclideanDistance<Scalar>> kdtree;
 
         Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 1,
@@ -106,7 +106,7 @@ TEST_CASE("kdtree_minkowski")
 
     SECTION("manhatten query multiple")
     {
-        knncpp::KDTreeMinkowski<Scalar, knncpp::ManhattenDistance<Scalar>> kdtree;
+        knncpp::KDTreeMinkowskiX<Scalar, knncpp::ManhattenDistance<Scalar>> kdtree;
 
         Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 3,
@@ -139,7 +139,7 @@ TEST_CASE("kdtree_minkowski")
 
     SECTION("minkowski query multiple")
     {
-        knncpp::KDTreeMinkowski<Scalar, knncpp::MinkowskiDistance<Scalar, 2>> kdtree;
+        knncpp::KDTreeMinkowskiX<Scalar, knncpp::MinkowskiDistance<Scalar, 2>> kdtree;
 
         Matrix data(3, 9);
         data << 1, 2, 3, 1, 2, 3, 1, 2, 1,
@@ -172,7 +172,7 @@ TEST_CASE("kdtree_minkowski")
 
     SECTION("chebyshev query multiple")
     {
-        knncpp::KDTreeMinkowski<Scalar, knncpp::ChebyshevDistance<Scalar>> kdtree;
+        knncpp::KDTreeMinkowskiX<Scalar, knncpp::ChebyshevDistance<Scalar>> kdtree;
 
         Matrix data(3, 9);
         data << 1, 2, 4, 4, 4, 1, 1, 5, 3,
@@ -205,7 +205,7 @@ TEST_CASE("kdtree_minkowski")
 
     SECTION("query many")
     {
-        knncpp::KDTreeMinkowski<Scalar> kdtree;
+        knncpp::KDTreeMinkowskiX<Scalar> kdtree;
         Matrix dataPts(3, 50);
         dataPts << -22.58, -80.33, 42.48, -10.11, -87.03, -40.01, -9.88, 98.56,
             -43.11, -49.37, 1.31, -55.78, -89.13, 54.78, -84.68, 67.34, 17.49,
@@ -325,7 +325,7 @@ TEST_CASE("kdtree_minkowski")
 
     SECTION("query maximum distance")
     {
-        knncpp::KDTreeMinkowski<Scalar> kdtree;
+        knncpp::KDTreeMinkowskiX<Scalar> kdtree;
         Matrix dataPts(3, 50);
         dataPts << 99.88, -19.59, -74.16, 86.5, 47.21, -72.68, -1.97, -54.12,
             -9.22, 79.25, 94.14, 44.77, -34.63, 52.89, -91.08, -34.02, 1.02,

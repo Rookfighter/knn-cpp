@@ -598,23 +598,19 @@ namespace knncpp
       * This kdtree only works reliably with the minkowski distance and its
       * special cases like manhatten or euclidean distance.
       * @see ManhattenDistance, EuclideanDistance, ChebyshevDistance, MinkowskiDistance*/
-    template<typename Scalar,
-        typename Distance=EuclideanDistance<Scalar>>
+    template<typename _Scalar, int _Dimension, typename _Distance>
     class KDTreeMinkowski
     {
     public:
+        typedef _Scalar Scalar;
+        typedef _Distance Distance;
         typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
-        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
+        typedef Eigen::Matrix<Scalar, _Dimension, Eigen::Dynamic> DataMatrix;
+        typedef Eigen::Matrix<Scalar, _Dimension, 1> DataVector;
         typedef knncpp::Matrixi Matrixi;
     private:
-
-        struct Bounds
-        {
-            Scalar lower;
-            Scalar upper;
-        };
-
-        typedef std::vector<Bounds> BoundingBox;
+        typedef Eigen::Matrix<Scalar, 2, 1> Bounds;
+        typedef Eigen::Matrix<Scalar, 2, _Dimension> BoundingBox;
 
         /** Struct representing a node in the KDTree.
           * It can be either a inner node or a leaf node. */
@@ -632,6 +628,11 @@ namespace knncpp
             Index splitaxis = -1;
             /** Translation of the axis aligned splitting hyper plane. */
             Scalar splitpoint = 0;
+            /** Lower end of the splitpoint range */
+            Scalar splitlower = 0;
+            /** Upper end of the splitpoint range */
+            Scalar splitupper = 0;
+
 
             Node() = default;
 
@@ -668,8 +669,8 @@ namespace knncpp
             }
         };
 
-        Matrix dataCopy_ = Matrix();
-        const Matrix *data_ = nullptr;
+        DataMatrix dataCopy_ = DataMatrix();
+        const DataMatrix *data_ = nullptr;
         std::vector<Index> indices_ = std::vector<Index>();
         std::vector<Node> nodes_ = std::vector<Node>();
 
@@ -683,11 +684,14 @@ namespace knncpp
 
         Distance distance_ = Distance();
 
+        BoundingBox bbox_ = BoundingBox();
+
         Index buildLeafNode(const Index startIdx,
             const Index length,
-            const BoundingBox &)
+            BoundingBox &bbox)
         {
             nodes_.push_back(Node(startIdx, length));
+            calculateBoundingBox(startIdx, length, bbox);
             return static_cast<Index>(nodes_.size() - 1);
         }
 
@@ -703,16 +707,16 @@ namespace knncpp
             assert(length > 0);
             assert(startIdx >= 0);
             assert(static_cast<size_t>(startIdx + length) <= indices_.size());
-            assert(static_cast<size_t>(data_->rows()) == bbox.size());
+            assert(data_->rows() == bbox.cols());
 
-            const Matrix &data = *data_;
+            const DataMatrix &data = *data_;
 
             // initialize bounds of the bounding box
             Index first = indices_[startIdx];
-            for(size_t i = 0; i < bbox.size(); ++i)
+            for(Index i = 0; i < bbox.cols(); ++i)
             {
-                bbox[i].lower = data(i, first);
-                bbox[i].upper = data(i, first);
+                bbox(0, i) = data(i, first);
+                bbox(1, i) = data(i, first);
             }
 
             // search for min / max values in data
@@ -725,10 +729,8 @@ namespace knncpp
                 // check min and max for each dimension individually
                 for(Index j = 0; j < data.rows(); ++j)
                 {
-                    if(bbox[j].lower > data(j, col))
-                        bbox[j].lower = data(j, col);
-                    if(bbox[j].upper < data(j, col))
-                        bbox[j].upper = data(j, col);
+                    bbox(0, j) = std::min(bbox(0, j), data(j, col));
+                    bbox(1, j) = std::max(bbox(1, j), data(j, col));
                 }
             }
         }
@@ -743,20 +745,18 @@ namespace knncpp
             assert(startIdx >= 0);
             assert(static_cast<size_t>(startIdx + length) <= indices_.size());
 
-            const Matrix &data = *data_;
+            const DataMatrix &data = *data_;
 
-            bounds.lower = data(dim, indices_[startIdx]);
-            bounds.upper = data(dim, indices_[startIdx]);
+            bounds(0) = data(dim, indices_[startIdx]);
+            bounds(1) = data(dim, indices_[startIdx]);
 
             for(Index i = 1; i < length; ++i)
             {
                 Index col = indices_[startIdx + i];
                 assert(col >= 0 && col < data.cols());
 
-                if(bounds.lower > data(dim, col))
-                    bounds.lower = data(dim, col);
-                if(bounds.upper < data(dim, col))
-                    bounds.upper = data(dim, col);
+                bounds(0) = std::min(bounds(0), data(dim, col));
+                bounds(1) = std::max(bounds(1), data(dim, col));
             }
         }
 
@@ -767,14 +767,14 @@ namespace knncpp
             Scalar &splitpoint,
             Index &splitoffset)
         {
-            const Matrix &data = *data_;
+            const DataMatrix &data = *data_;
 
             // search for axis with longest distance
             splitaxis = 0;
             Scalar splitsize = static_cast<Scalar>(0);
             for(Index i = 0; i < data.rows(); ++i)
             {
-                Scalar diff = bbox[i].upper - bbox[i].lower;
+                Scalar diff = bbox(1, i) - bbox(0, i);
                 if(diff > splitsize)
                 {
                     splitaxis = static_cast<Index>(i);
@@ -786,7 +786,7 @@ namespace knncpp
             // accordingly
             Bounds bounds;
             calculateBounds(startIdx, length, splitaxis, bounds);
-            splitsize = bounds.upper - bounds.lower;
+            splitsize = bounds(1) - bounds(0);
 
             const Index origSplitaxis = splitaxis;
             for(Index i = 0; i < data.rows(); ++i)
@@ -794,13 +794,13 @@ namespace knncpp
                 // skip the dimension of the previously found splitaxis
                 if(i == origSplitaxis)
                     continue;
-                Scalar diff = bbox[i].upper - bbox[i].lower;
+                Scalar diff = bbox(1, i) - bbox(0, i);
                 // check if the split for this dimension would be potentially larger
                 if(diff > splitsize)
                 {
                     // update the bounds to their actual current value
                     calculateBounds(startIdx, length, splitaxis, bounds);
-                    diff = bounds.upper - bounds.lower;
+                    diff = bounds(1) - bounds(0);
                     if(diff > splitsize)
                     {
                         splitaxis = i;
@@ -810,7 +810,7 @@ namespace knncpp
             }
 
             // use the sliding midpoint rule
-            splitpoint = (bounds.lower + bounds.upper) / static_cast<Scalar>(2);
+            splitpoint = (bounds(0) + bounds(1)) / static_cast<Scalar>(2);
 
             Index leftIdx = startIdx;
             Index rightIdx = startIdx + length - 1;
@@ -866,25 +866,27 @@ namespace knncpp
 
             const Index halfLength = length / static_cast<Index>(2);
 
-
-            // offset1 contains all objects which are less than the splitpoint
+            // find a separation of points such that is best balanced
+            // offset1 denotes separation where equal points are all on the right
+            // offset2 denots separation where equal points are all on the left
             if (offset1 > halfLength)
                 splitoffset = offset1;
-            // offset2 contains also objects which are equal the splitpoint
             else if (offset2 < halfLength)
                 splitoffset = offset2;
+            // when we get here offset1 < halflength and offset2 > halflength
+            // so simply split the equal elements in the middle
             else
                 splitoffset = halfLength;
         }
 
         Index buildInnerNode(const Index startIdx,
             const Index length,
-            const BoundingBox &bbox)
+            BoundingBox &bbox)
         {
             assert(length > 0);
             assert(startIdx >= 0);
             assert(static_cast<size_t>(startIdx  + length) <= indices_.size());
-            assert(static_cast<size_t>(data_->rows()) == bbox.size());
+            assert(data_->rows() == bbox.cols());
 
             // create node
             const Index nodeIdx = nodes_.size();
@@ -902,31 +904,29 @@ namespace knncpp
             const Index leftLength = splitoffset;
             const Index rightStart = startIdx + splitoffset;
             const Index rightLength = length - splitoffset;
-            BoundingBox bboxChild(bbox.size());
 
-            if(compact_)
+            BoundingBox bboxLeft = bbox;
+            BoundingBox bboxRight = bbox;
+
+            // do left build
+            bboxLeft(1, splitaxis) = splitpoint;
+            Index left = buildR(leftStart, leftLength, bboxLeft);
+            nodes_[nodeIdx].left =  left;
+
+            // do right build
+            bboxRight(0, splitaxis) = splitpoint;
+            Index right = buildR(rightStart, rightLength, bboxRight);
+            nodes_[nodeIdx].right = right;
+
+            // extract the range of the splitpoint
+            nodes_[nodeIdx].splitlower = bboxLeft(1, splitaxis);
+            nodes_[nodeIdx].splitupper = bboxRight(0, splitaxis);
+
+            // update the bounding box to the values of the new bounding boxes
+            for(Index i = 0; i < bbox.cols(); ++i)
             {
-                // recompute bounds to make the tree more compact
-                calculateBoundingBox(leftStart, leftLength, bboxChild);
-                nodes_[nodeIdx].left = buildR(leftStart, leftLength, bboxChild);
-
-                calculateBoundingBox(rightStart, rightLength, bboxChild);
-                nodes_[nodeIdx].right = buildR(rightStart, rightLength, bboxChild);
-            }
-            else
-            {
-                // just re-use mins and maxes, but set splitaxes to value of splitpoint
-                std::copy(bbox.begin(), bbox.end(), bboxChild.begin());
-                bboxChild[splitaxis].upper = splitpoint;
-
-                Index left = buildR(leftStart, leftLength, bboxChild);
-                nodes_[nodeIdx].left =  left;
-
-                bboxChild[splitaxis].upper = bbox[splitaxis].upper;
-                bboxChild[splitaxis].lower = splitpoint;
-
-                Index right = buildR(rightStart, rightLength, bboxChild);
-                nodes_[nodeIdx].right = right;
+                bbox(0, i) = std::min(bboxLeft(0, i), bboxRight(0, i));
+                bbox(1, i) = std::min(bboxLeft(1, i), bboxRight(1, i));
             }
 
             return nodeIdx;
@@ -934,7 +934,7 @@ namespace knncpp
 
         Index buildR(const Index startIdx,
             const Index length,
-            const BoundingBox &bbox)
+            BoundingBox &bbox)
         {
             // check for base case
             if(length <= bucketSize_)
@@ -960,17 +960,17 @@ namespace knncpp
         {
             assert(node.isLeaf());
 
-            const Matrix &data = *data_;
+            const DataMatrix &data = *data_;
 
             // go through all points in this leaf node and do brute force search
             for(Index i = 0; i < node.length; ++i)
             {
-                Index idx = node.startIdx + i;
+                const Index idx = node.startIdx + i;
                 assert(idx >= 0 && idx < indices_.size());
 
                 // retrieve index of the current data point
-                Index dataIdx = indices_[idx];
-                Scalar dist = distance_(queryPoint, data.col(dataIdx));
+                const Index dataIdx = indices_[idx];
+                const Scalar dist = distance_(queryPoint, data.col(dataIdx));
 
                 // check if point is within max distance and if the value would be
                 // an improvement
@@ -986,44 +986,62 @@ namespace knncpp
         template<typename Derived>
         void queryInnerNode(const Node &node,
             const Eigen::MatrixBase<Derived> &queryPoint,
-            QueryHeap<Scalar> &dataHeap) const
+            QueryHeap<Scalar> &dataHeap,
+            DataVector &splitdists,
+            const Scalar mindist) const
         {
             assert(node.isInner());
 
-            Scalar splitval = queryPoint(node.splitaxis, 0);
-
+            const Index splitaxis = node.splitaxis;
+            const Scalar splitval = queryPoint(splitaxis, 0);
+            Scalar splitdist;
+            Index firstNode;
+            Index secondNode;
             // check if right or left child should be visited
-            bool visitRight = splitval >= node.splitpoint;
-            if(visitRight)
-                queryR(nodes_[node.right], queryPoint, dataHeap);
+            const bool visitLeft = splitval - node.splitlower < node.splitupper - splitval;
+            if(visitLeft)
+            {
+                firstNode = node.left;
+                secondNode = node.right;
+                splitdist = distance_(splitval, node.splitupper);
+            }
             else
-                queryR(nodes_[node.left], queryPoint, dataHeap);
+            {
+                firstNode = node.right;
+                secondNode = node.left;
+                splitdist = distance_(splitval, node.splitlower);
+            }
 
-            // get distance to split point
-            Scalar splitdist = distance_(splitval, node.splitpoint);
+            queryR(nodes_[firstNode], queryPoint, dataHeap, splitdists, mindist);
+
+            const Scalar splitdistOld = splitdists(splitaxis);
+            const Scalar mindistNew = mindist + splitdist - splitdistOld;
 
             // check if node is in range if max distance was set
             // check if this node was an improvement if heap is already full
-            if(isDistanceInRange(splitdist) && isDistanceImprovement(splitdist, dataHeap))
+            if(isDistanceInRange(mindistNew) && isDistanceImprovement(mindistNew, dataHeap))
             {
-                if(visitRight)
-                    queryR(nodes_[node.left], queryPoint, dataHeap);
-                else
-                    queryR(nodes_[node.right], queryPoint, dataHeap);
+                splitdists(splitaxis) = splitdist;
+                queryR(nodes_[secondNode], queryPoint, dataHeap, splitdists, mindistNew);
+                splitdists(splitaxis) = splitdistOld;
             }
+
         }
 
         template<typename Derived>
         void queryR(const Node &node,
             const Eigen::MatrixBase<Derived> &queryPoint,
-            QueryHeap<Scalar> &dataHeap) const
+            QueryHeap<Scalar> &dataHeap,
+            DataVector &splitdists,
+            const Scalar mindist) const
         {
             if(node.isLeaf())
                 queryLeafNode(node, queryPoint, dataHeap);
             else
-                queryInnerNode(node, queryPoint, dataHeap);
+                queryInnerNode(node, queryPoint, dataHeap, splitdists, mindist);
         }
 
+        /** Recursively computes the depth for the given node. */
         Index depthR(const Node &node) const
         {
             if(node.isLeaf())
@@ -1046,7 +1064,7 @@ namespace knncpp
           * the index of the tree.
           * @param data NxM matrix, M points of dimension N
           * @param copy if true copies the data, otherwise assumes static data */
-        KDTreeMinkowski(const Matrix &data, const bool copy=false)
+        KDTreeMinkowski(const DataMatrix &data, const bool copy=false)
         {
             setData(data, copy);
         }
@@ -1116,7 +1134,7 @@ namespace knncpp
           * This does not build the tree.
           * @param data NxM matrix, M points of dimension N
           * @param copy if true data is copied, assumes static data otherwise */
-        void setData(const Matrix &data, const bool copy = false)
+        void setData(const DataMatrix &data, const bool copy = false)
         {
             clear();
             if(copy)
@@ -1153,13 +1171,13 @@ namespace knncpp
             for(size_t i = 0; i < indices_.size(); ++i)
                 indices_[i] = i;
 
-            BoundingBox bbox(data_->rows());
+            bbox_.resize(2, data_->rows());
             Index startIdx = 0;
             Index length = data_->cols();
 
-            calculateBoundingBox(startIdx, length, bbox);
+            calculateBoundingBox(startIdx, length, bbox_);
 
-            buildR(startIdx, length, bbox);
+            buildR(startIdx, length, bbox_);
         }
 
         /** Queries the tree for the nearest neighbours of the given query
@@ -1200,13 +1218,38 @@ namespace knncpp
             #pragma omp parallel for num_threads(threads_)
             for(Index i = 0; i < queryPoints.cols(); ++i)
             {
+
                 Scalar *distPoint = &distsRaw[i * knn];
                 Index *idxPoint = &indicesRaw[i * knn];
 
                 // create heap to find nearest neighbours
                 QueryHeap<Scalar> dataHeap(idxPoint, distPoint, knn);
 
-                queryR(nodes_[0], queryPoints.col(i), dataHeap);
+                Scalar mindist = static_cast<Scalar>(0);
+                DataVector splitdists(queryPoints.rows());
+
+                for(Index j = 0; j < splitdists.rows(); ++j)
+                {
+                    const Scalar value = queryPoints(j, i);
+                    const Scalar lower = bbox_(0, j);
+                    const Scalar upper = bbox_(1, j);
+                    if(value < lower)
+                    {
+                        splitdists(j) = distance_(value, lower);
+                    }
+                    else if(value > upper)
+                    {
+                        splitdists(j) = distance_(value, upper);
+                    }
+                    else
+                    {
+                        splitdists(j) = static_cast<Scalar>(0);
+                    }
+
+                    mindist += splitdists(j);
+                }
+
+                queryR(nodes_[0], queryPoints.col(i), dataHeap, splitdists, mindist);
 
                 if(sorted_)
                     dataHeap.sort();
@@ -1250,6 +1293,12 @@ namespace knncpp
             return nodes_.size() == 0 ? 0 : depthR(nodes_.front());
         }
     };
+
+    template<typename _Scalar, typename _Distance = EuclideanDistance<_Scalar>> using KDTreeMinkowski2 = KDTreeMinkowski<_Scalar, 2, _Distance>;
+    template<typename _Scalar, typename _Distance = EuclideanDistance<_Scalar>> using KDTreeMinkowski3 = KDTreeMinkowski<_Scalar, 3, _Distance>;
+    template<typename _Scalar, typename _Distance = EuclideanDistance<_Scalar>> using KDTreeMinkowski4 = KDTreeMinkowski<_Scalar, 4, _Distance>;
+    template<typename _Scalar, typename _Distance = EuclideanDistance<_Scalar>> using KDTreeMinkowski5 = KDTreeMinkowski<_Scalar, 5, _Distance>;
+    template<typename _Scalar, typename _Distance = EuclideanDistance<_Scalar>> using KDTreeMinkowskiX = KDTreeMinkowski<_Scalar, Eigen::Dynamic, _Distance>;
 
     /** Class for performing KNN search in hamming space by multi-index hashing. */
     template<typename Scalar>

@@ -89,7 +89,7 @@ int main(int argc, char** argv)
     // std::cout << "BruteForce" << std::endl;
     // testPerformance(bf, mat);
 
-    knncpp::KDTreeMinkowski<Scalar, knncpp::EuclideanDistance<Scalar>> kdtree(mat);
+    knncpp::KDTreeMinkowskiX<Scalar, knncpp::EuclideanDistance<Scalar>> kdtree(mat);
     kdtree.setSorted(true);
     kdtree.setBalanced(false);
     kdtree.setCompact(false);
