@@ -93,7 +93,7 @@ int main(int argc, char** argv)
     kdtree.setSorted(true);
     kdtree.setBalanced(false);
     kdtree.setCompact(false);
-    kdtree.setMaxDistance(0.5);
+    kdtree.setMaxDistance(0);
     kdtree.setThreads(0);
     kdtree.setTakeRoot(false);
     kdtree.setBucketSize(16);
@@ -104,7 +104,8 @@ int main(int argc, char** argv)
     knncpp::KDTreeFlann<Scalar> kdtree2(mat);
     kdtree2.setIndexParams(flann::KDTreeSingleIndexParams(16));
     kdtree2.setThreads(0);
-    kdtree.setMaxDistance(0.5);
+    kdtree2.setSorted(true);
+    kdtree2.setMaxDistance(0);
 
     std::cout << "KDTreeFlann" << std::endl;
     testPerformance(kdtree2, mat);

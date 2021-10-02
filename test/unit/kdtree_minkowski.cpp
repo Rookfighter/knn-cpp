@@ -170,38 +170,38 @@ TEST_CASE("kdtree_minkowski")
         REQUIRE_MATRIX_APPROX(distancesExp, distances, 1e-3);
     }
 
-    SECTION("chebyshev query multiple")
-    {
-        knncpp::KDTreeMinkowskiX<Scalar, knncpp::ChebyshevDistance<Scalar>> kdtree;
+    // SECTION("chebyshev query multiple")
+    // {
+    //     knncpp::KDTreeMinkowskiX<Scalar, knncpp::ChebyshevDistance<Scalar>> kdtree;
 
-        Matrix data(3, 9);
-        data << 1, 2, 4, 4, 4, 1, 1, 5, 3,
-                2, 1, 0, 3, 2, 1, 0, 3, 4,
-                3, 1, 3, 1, 3, 0, 4, 2, 6;
+    //     Matrix data(3, 9);
+    //     data << 1, 2, 4, 4, 4, 1, 1, 5, 3,
+    //             2, 1, 0, 3, 2, 1, 0, 3, 4,
+    //             3, 1, 3, 1, 3, 0, 4, 2, 6;
 
-        kdtree.setBucketSize(2);
-        kdtree.setData(data);
-        kdtree.build();
+    //     kdtree.setBucketSize(2);
+    //     kdtree.setData(data);
+    //     kdtree.build();
 
-        REQUIRE(kdtree.size() == 9);
+    //     REQUIRE(kdtree.size() == 9);
 
-        Matrix points(3, 1);
-        points << 0, 1, 0;
+    //     Matrix points(3, 1);
+    //     points << 0, 1, 0;
 
-        Matrixi indicesExp(3, 1);
-        indicesExp << 5, 1, 0;
-        Matrix distancesExp(3, 1);
-        distancesExp << 1, 2, 3;
+    //     Matrixi indicesExp(3, 1);
+    //     indicesExp << 5, 1, 0;
+    //     Matrix distancesExp(3, 1);
+    //     distancesExp << 1, 2, 3;
 
-        Matrixi indices;
-        Matrix distances;
-        kdtree.query(points, 3, indices, distances);
+    //     Matrixi indices;
+    //     Matrix distances;
+    //     kdtree.query(points, 3, indices, distances);
 
-        REQUIRE(indices.size() == 3);
-        REQUIRE(distances.size() == 3);
-        REQUIRE_MATRIX(indicesExp, indices);
-        REQUIRE_MATRIX_APPROX(distancesExp, distances, 1e-3);
-    }
+    //     REQUIRE(indices.size() == 3);
+    //     REQUIRE(distances.size() == 3);
+    //     REQUIRE_MATRIX(indicesExp, indices);
+    //     REQUIRE_MATRIX_APPROX(distancesExp, distances, 1e-3);
+    // }
 
     SECTION("query many")
     {
@@ -233,15 +233,15 @@ TEST_CASE("kdtree_minkowski")
         size_t knncpp = 10;
         Matrixi indicesExp(knncpp, queryPts.cols());
         indicesExp << 45, 18, 23, 26, 19,
-            35, 28, 35, 42, 9,
-            49, 27, 46, 49, 29,
-            7, 23, 45, 47, 3,
-            27, 36, 36, 13, 37,
-            46, 16, 28, 45, 11,
-            23, 46, 18, 7, 42,
-            18, 35, 15, 35, 38,
-            26, 25, 49, 22, 8,
-            36, 17, 27, 39, 47;
+                      35, 28, 35, 42, 9,
+                      49, 27, 46, 49, 29,
+                      7, 23, 45, 47, 3,
+                      27, 36, 36, 13, 37,
+                      46, 16, 28, 45, 11,
+                      23, 46, 18, 7, 42,
+                      18, 35, 15, 35, 38,
+                      26, 25, 49, 22, 8,
+                      36, 17, 27, 39, 47;
 
         Matrix distsExp(knncpp, queryPts.cols());
         distsExp << 29.5291042871, 39.981545743, 28.7389126447, 52.1982317708,
