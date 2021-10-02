@@ -67,21 +67,13 @@ int main()
     // The distance type is defined by the second template parameter.
     // Currently ManhattenDistance, EuclideanDistance, ChebyshevDistance and
     // MinkowskiDistance are available.
-    knncpp::KDTreeMinkowski<double, knncpp::EuclideanDistance<double>> kdtree(dataPoints);
+    knncpp::KDTreeMinkowskiX<double, knncpp::EuclideanDistance<double>> kdtree(dataPoints);
 
     // Set the bucket size for each leaf node in the tree. The higher the value
     // the less leafs have to be visited to find the nearest neighbors. The
     // lower the value the less distance evaluations have to be computed.
     // Default is 16.
     kdtree.setBucketSize(16);
-    // Set if the tree should be built compactly. Reduces the tree size and
-    // query time but increases build time.
-    // Default is false.
-    kdtree.setCompact(false);
-    // Set if the tree should be built balanced. Reduces the tree depth and
-    // query time but increases build time.
-    // Default is false.
-    kdtree.setBalanced(false);
     // Set if the resulting neighbors should be sorted in ascending order after
     // a successfull search.
     // This consumes some time during the query.
@@ -94,7 +86,7 @@ int main()
     // Set the maximum inclusive distance for the query. Set to 0 or negative
     // to disable maximum distances.
     // Default is 0.
-    kdtree.setMaxDistance(2.5);
+    kdtree.setMaxDistance(2.5 * 2.5);
     // Set how many threads should be used during the query. Set to 0 or
     // negative to autodetect the optimal number of threads (OpenMP only).
     // Default is 1.
