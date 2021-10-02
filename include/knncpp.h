@@ -675,10 +675,10 @@ namespace knncpp
         std::vector<Node> nodes_ = std::vector<Node>();
 
         Index bucketSize_ = 16;
-        bool sorted_ = false;
+        bool sorted_ = true;
         bool compact_ = false;
         bool balanced_ = false;
-        bool takeRoot_ = false;
+        bool takeRoot_ = true;
         Index threads_ = 0;
         Scalar maxDist_ = 0;
 
@@ -777,7 +777,7 @@ namespace knncpp
                 Scalar diff = bbox(1, i) - bbox(0, i);
                 if(diff > splitsize)
                 {
-                    splitaxis = static_cast<Index>(i);
+                    splitaxis = i;
                     splitsize = diff;
                 }
             }
@@ -798,13 +798,15 @@ namespace knncpp
                 // check if the split for this dimension would be potentially larger
                 if(diff > splitsize)
                 {
+                    Bounds newBounds;
                     // update the bounds to their actual current value
-                    calculateBounds(startIdx, length, splitaxis, bounds);
-                    diff = bounds(1) - bounds(0);
+                    calculateBounds(startIdx, length, splitaxis, newBounds);
+                    diff = newBounds(1) - newBounds(0);
                     if(diff > splitsize)
                     {
                         splitaxis = i;
                         splitsize = diff;
+                        bounds = newBounds;
                     }
                 }
             }
@@ -926,7 +928,7 @@ namespace knncpp
             for(Index i = 0; i < bbox.cols(); ++i)
             {
                 bbox(0, i) = std::min(bboxLeft(0, i), bboxRight(0, i));
-                bbox(1, i) = std::min(bboxLeft(1, i), bboxRight(1, i));
+                bbox(1, i) = std::max(bboxLeft(1, i), bboxRight(1, i));
             }
 
             return nodeIdx;
@@ -966,7 +968,7 @@ namespace knncpp
             for(Index i = 0; i < node.length; ++i)
             {
                 const Index idx = node.startIdx + i;
-                assert(idx >= 0 && idx < indices_.size());
+                assert(idx >= 0 && idx < static_cast<Index>(indices_.size()));
 
                 // retrieve index of the current data point
                 const Index dataIdx = indices_[idx];
