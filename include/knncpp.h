@@ -1000,7 +1000,7 @@ namespace knncpp
             Index firstNode;
             Index secondNode;
             // check if right or left child should be visited
-            const bool visitLeft = splitval - node.splitlower < node.splitupper - splitval;
+            const bool visitLeft = (splitval - node.splitlower + splitval - node.splitupper) < 0;
             if(visitLeft)
             {
                 firstNode = node.left;
@@ -1016,18 +1016,17 @@ namespace knncpp
 
             queryR(nodes_[firstNode], queryPoint, dataHeap, splitdists, mindist);
 
-            const Scalar splitdistOld = splitdists(splitaxis);
-            const Scalar mindistNew = mindist + splitdist - splitdistOld;
+            const Scalar mindistNew = mindist + splitdist - splitdists(splitaxis);
 
             // check if node is in range if max distance was set
             // check if this node was an improvement if heap is already full
             if(isDistanceInRange(mindistNew) && isDistanceImprovement(mindistNew, dataHeap))
             {
+                const Scalar splitdistOld = splitdists(splitaxis);
                 splitdists(splitaxis) = splitdist;
                 queryR(nodes_[secondNode], queryPoint, dataHeap, splitdists, mindistNew);
                 splitdists(splitaxis) = splitdistOld;
             }
-
         }
 
         template<typename Derived>
