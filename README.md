@@ -2,8 +2,7 @@
 
 ![Cpp11](https://img.shields.io/badge/C%2B%2B-11-blue.svg)
 ![License](https://img.shields.io/packagist/l/doctrine/orm.svg)
-![Travis Status](https://travis-ci.org/Rookfighter/knn-cpp.svg?branch=master)
-![Appveyer Status](https://ci.appveyor.com/api/projects/status/2ul9sh3f2cvev1a1?svg=true)
+![CMake](https://github.com/Rookfighter/knn-cpp/workflows/CMake/badge.svg)
 
 ```knn-cpp``` is a header-only C++ library for k nearest neighbor search
 using the ```Eigen3``` library.
@@ -12,8 +11,6 @@ It implements various interfaces for KNN search:
 
 * pure ````Eigen3```` parallelized brute force search
 * pure ````Eigen3```` kdtree for efficient search with Manhatten, Euclidean and Minkowski distances
-* pure ````Eigen3```` multi.index hashing search with Hamming distance
-* kdtree wrapper for ```FLANN``` with ````Eigen3```` matrices
 
 ## Install
 
